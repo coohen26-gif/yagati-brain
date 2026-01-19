@@ -1,14 +1,17 @@
+import os
+import sys
 import json
 import re
 import requests
 from collections import defaultdict
 from datetime import datetime, timezone
 
-# =========================
-# CONFIG
-# =========================
-SUPABASE_URL = "https://jhtfuqpnggmblsdftlry.supabase.co"
-ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL or not ANON_KEY:
+    print("SUPABASE_URL or SUPABASE_ANON_KEY not set — skipping Supabase send.")
+    sys.exit(0)
 
 HEADERS = {
     "Authorization": f"Bearer {ANON_KEY}",
@@ -25,8 +28,6 @@ UUID_RE = re.compile(
     r"[0-9a-fA-F]{4}-"
     r"[0-9a-fA-F]{12}$"
 )
-
-SWING_STRATEGY_ID = "EMA200_CONTINUATION_AGGRESSIVE_V1"
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat()
@@ -46,50 +47,19 @@ def load_registry():
         with open(REGISTRY_FILE, "r", encoding="utf-8") as f:
             reg = json.load(f)
         return reg if isinstance(reg, dict) else {}
-    except FileNotFoundError:
-        return {}
     except Exception:
         return {}
 
-def get_registry_info(registry: dict, brain_key: str):
-    """
-    Retourne (brain_version, brain_status, concept, direction, parent) si disponible.
-    """
-    strategies = registry.get("strategies", {}) if isinstance(registry, dict) else {}
-    s = strategies.get(brain_key)
-    if not isinstance(s, dict):
-        return None
-
-    return {
-        "brain_strategy_key": brain_key,
-        "brain_version": s.get("version"),
-        "brain_status": s.get("status"),
-        "concept": s.get("concept"),
-        "direction": s.get("direction"),
-        "parent": s.get("parent"),
-    }
-
-# =========================
-# LOAD ANALYSIS
-# =========================
 trades = []
 try:
     with open(ANALYSIS_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        trades = data if data is not None else []
-except FileNotFoundError:
-    trades = []
-except Exception as e:
-    print("Failed to read analysis file:", e)
+        trades = json.load(f) or []
+except Exception:
     trades = []
 
-# Ensure trades is a list
 if not isinstance(trades, list):
     trades = [trades]
 
-# =========================
-# GROUP BY STRATEGY
-# =========================
 by_strategy = defaultdict(list)
 for t in trades:
     sid = t.get("strategy_id")
@@ -97,12 +67,10 @@ for t in trades:
         by_strategy[sid].append(t)
 
 print(f"Brain detected {len(by_strategy)} strategy_id groups")
-if not trades:
-    print("🧠 Brain run OK — no new signals to analyze")
+if not by_strategy:
+    print("No strategies detected — nothing to send. Exiting.")
+    sys.exit(0)
 
-# =========================
-# DECISION LOGIC
-# =========================
 def decide_strategy(trades_):
     kills = sum(1 for t in trades_ if t.get("decision") == "KILL")
     keeps = sum(1 for t in trades_ if t.get("decision") == "KEEP")
@@ -110,104 +78,25 @@ def decide_strategy(trades_):
     total = len(trades_) if trades_ else 1
 
     if kills / total > 0.6:
-        return "ADJUST_REJECTED", f"{kills}/{total} trades négatifs"
+        return "ADJUST_REJECTED", "too many kills"
     if keeps / total > 0.6:
-        return "KEEP", f"{keeps}/{total} trades positifs"
-    return "ADJUST", f"Résultats mixtes ({keeps} KEEP / {kills} KILL / {adjusts} ADJUST)"
+        return "KEEP", "mostly keeps"
+    return "ADJUST", "mixed results"
 
-# =========================
-# LOAD REGISTRY (optional)
-# =========================
-registry = load_registry()
-
-# =========================
-# SEND TO SUPABASE
-# =========================
-success = 0
-errors = 0
-skipped = 0
-
-# HEARTBEAT: if no strategy groups were detected, send a NO_TRADE log so Supabase sees the brain is alive.
-if len(by_strategy) == 0:
+for strategy_id, items in by_strategy.items():
+    action, reason = decide_strategy(items)
     payload = {
-        "strategy_id": SWING_STRATEGY_ID,
-        "action": "NO_TRADE",
-        "reason": "no new swing signals",
-        "metadata": {
-            "ts": utc_now(),
-            "trades_analyzed": 0,
-            "details": "heartbeat: no strategies detected",
-            "strategy_id_type": "UNKNOWN",
-            "brain_canonical": None,
-        }
-    }
-
-    try:
-        r = requests.post(
-            f"{SUPABASE_URL}/functions/v1/brain-log",
-            headers=HEADERS,
-            json=payload
-        )
-        if r.status_code == 200:
-            print(f"HEARTBEAT OK -> {payload['action']}")
-            success += 1
-        else:
-            print(f"HEARTBEAT ERROR -> {r.status_code} {r.text}")
-            errors += 1
-    except Exception as e:
-        print("HEARTBEAT request failed:", e)
-        errors += 1
-
-# Normal flow: send aggregated decisions per strategy
-for strategy_id_raw, trades_ in by_strategy.items():
-    action, reason = decide_strategy(trades_)
-
-    sid_type = classify_strategy_id(strategy_id_raw)
-
-    # Canonical info if it's already a Brain key
-    registry_info = None
-    if sid_type == "BRAIN_KEY":
-        registry_info = get_registry_info(registry, strategy_id_raw)
-
-    # We keep `strategy_id` as-is for backward compatibility.
-    payload = {
-        "strategy_id": strategy_id_raw,
+        "strategy_id": strategy_id,
         "action": action,
         "reason": reason,
         "metadata": {
             "ts": utc_now(),
-            "trades_analyzed": len(trades_),
-            "details": reason,
-            "strategy_id_raw": strategy_id_raw,
-            "strategy_id_type": sid_type,
-            "brain_canonical": registry_info  # may be None; that's fine
+            "trades_analyzed": len(items)
         }
     }
-
-    # Defensive: if strategy_id is empty (should not happen), skip
-    if not strategy_id_raw:
-        print("SKIP empty strategy_id")
-        skipped += 1
-        continue
-
-    try:
-        r = requests.post(
-            f"{SUPABASE_URL}/functions/v1/brain-log",
-            headers=HEADERS,
-            json=payload
-        )
-
-        if r.status_code == 200:
-            print(f"OK {strategy_id_raw} ({sid_type}) -> {action}")
-            success += 1
-        else:
-            print(f"ERROR {strategy_id_raw} ({sid_type}) -> {r.status_code} {r.text}")
-            errors += 1
-    except Exception as e:
-        print(f"ERROR {strategy_id_raw} request failed:", e)
-        errors += 1
-
-print("\nSUMMARY")
-print(f"Success: {success}")
-print(f"Errors: {errors}")
-print(f"Skipped: {skipped}")
+    r = requests.post(
+        f"{SUPABASE_URL}/functions/v1/brain-log",
+        headers=HEADERS,
+        json=payload
+    )
+    print(strategy_id, r.status_code)
