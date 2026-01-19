@@ -5,11 +5,18 @@ from math import fabs
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
+if not SUPABASE_URL:
+    raise RuntimeError("SUPABASE_URL environment variable is required for market_regime.py")
+
+# Normalize URL to avoid double slashes
+SUPABASE_URL = SUPABASE_URL.rstrip('/')
+
 HEADERS = {
     "apikey": SUPABASE_ANON_KEY,
     "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
     "Content-Type": "application/json",
 }
+
 
 def fetch_ohlc(symbol: str, timeframe: str, limit: int = 260):
     url = f"{SUPABASE_URL}/functions/v1/market-data/ohlc"
@@ -18,9 +25,20 @@ def fetch_ohlc(symbol: str, timeframe: str, limit: int = 260):
         "timeframe": timeframe,
         "limit": str(limit),
     }
-    r = requests.get(url, headers=HEADERS, params=params, timeout=20)
-    r.raise_for_status()
-    return r.json()
+    try:
+        r = requests.get(url, headers=HEADERS, params=params, timeout=20)
+        r.raise_for_status()
+        return r.json()
+    except requests.exceptions.HTTPError as http_err:
+        print(f"[market_regime] HTTP error occurred: {http_err}")
+        raise
+    except requests.exceptions.RequestException as req_err:
+        print(f"[market_regime] Request error occurred: {req_err}")
+        raise
+    except Exception as e:
+        print(f"[market_regime] fetch_ohlc failed for {symbol} {timeframe} limit={limit}: {e}")
+        raise
+
 
 def ema(values, period: int):
     if len(values) < period:
@@ -31,6 +49,7 @@ def ema(values, period: int):
         e = v * k + e * (1 - k)
     return e
 
+
 def slope(values, lookback: int = 20):
     if len(values) < lookback:
         return None
@@ -39,6 +58,7 @@ def slope(values, lookback: int = 20):
     if first == 0:
         return None
     return (last - first) / first
+
 
 def detect_regime(symbol: str):
     candles = fetch_ohlc(symbol, "1d", limit=260)
