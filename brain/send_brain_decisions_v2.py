@@ -1,3 +1,4 @@
+import os
 import json
 import re
 import requests
@@ -7,11 +8,16 @@ from datetime import datetime, timezone
 # =========================
 # CONFIG
 # =========================
-SUPABASE_URL = "https://jhtfuqpnggmblsdftlry.supabase.co"
-ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL:
+    raise RuntimeError("SUPABASE_URL environment variable is required")
+if not SUPABASE_ANON_KEY:
+    raise RuntimeError("SUPABASE_ANON_KEY environment variable is required")
 
 HEADERS = {
-    "Authorization": f"Bearer {ANON_KEY}",
+    "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
     "Content-Type": "application/json"
 }
 
