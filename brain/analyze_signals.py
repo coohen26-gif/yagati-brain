@@ -16,6 +16,9 @@ from brain_core.trade_repository import TradeRepository
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
+if not SUPABASE_URL:
+    raise RuntimeError("SUPABASE_URL environment variable is required for analyze_signals.py")
+
 HEADERS = {
     "apikey": SUPABASE_ANON_KEY,
     "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
@@ -41,7 +44,6 @@ repo = TradeRepository()
 # =====================================================
 # UTILS
 # =====================================================
-
 def normalize_direction(d):
     if not d:
         return None
@@ -64,8 +66,10 @@ def save_last_run(dt):
         f.write(dt.isoformat())
 
 def fetch_signals():
+    # Use only SUPABASE_URL to build the functions endpoint. Ensure no trailing slash duplication.
+    url = f"{SUPABASE_URL.rstrip('/')}/functions/v1/brain-signals?limit=500"
     r = requests.get(
-        f"{SUPABASE_URL}/functions/v1/brain-signals?limit=5",
+        url,
         headers=HEADERS,
         timeout=20,
     )
@@ -113,7 +117,6 @@ def compute_rr(entry, stop, tp):
 # =====================================================
 # MAIN
 # =====================================================
-
 def main():
     print("🧠 Brain — V0 HARD PROOF (canonical TradeModel)")
 
