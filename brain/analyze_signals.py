@@ -82,6 +82,21 @@ def write_step1(items):
     with open(STEP1_FILE, "w", encoding="utf-8") as f:
         json.dump(items, f, indent=2)
 
+
+def compute_rr(entry, stop, tp):
+    try:
+        if not entry or not stop or not tp:
+            return None
+        entry = float(entry)
+        stop = float(stop)
+        tp = float(tp)
+        # rr for LONG: (tp - entry) / (entry - stop)
+        if entry == stop:
+            return None
+        return round(abs((tp - entry) / (entry - stop)), 2)
+    except Exception:
+        return None
+
 # =====================================================
 # MAIN
 # =====================================================
@@ -124,10 +139,15 @@ def main():
         positions.open_position(trade)
         repo.save_open(trade)
 
+        rr = compute_rr(s.get("entry_price"), s.get("stop_loss"), s.get("tp1"))
+
         opened.append({
-            "trade_id": trade.trade_id,
+            "strategy_id": STRATEGY_ID,
+            "decision": "KEEP",  # we actually opened the trade, so it's a KEEP
             "symbol": symbol,
             "direction": direction.value,
+            "rr": rr,
+            "created_at": created_at.isoformat(),
         })
 
     save_last_run(now)

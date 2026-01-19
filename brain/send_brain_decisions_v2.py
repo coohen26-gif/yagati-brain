@@ -26,6 +26,8 @@ UUID_RE = re.compile(
     r"[0-9a-fA-F]{12}$"
 )
 
+SWING_STRATEGY_ID = "EMA200_CONTINUATION_AGGRESSIVE_V1"
+
 def utc_now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -70,8 +72,19 @@ def get_registry_info(registry: dict, brain_key: str):
 # =========================
 # LOAD ANALYSIS
 # =========================
-with open(ANALYSIS_FILE, "r", encoding="utf-8") as f:
-    trades = json.load(f)
+trades = []
+try:
+    with open(ANALYSIS_FILE, "r", encoding="utf-8") as f:
+        trades = json.load(f) or []
+except FileNotFoundError:
+    trades = []
+except Exception as e:
+    print("Failed to read analysis file:", e)
+    trades = []
+
+# Ensure we have a list
+if not isinstance(trades, list):
+    trades = [trades]
 
 # =========================
 # GROUP BY STRATEGY
@@ -113,6 +126,38 @@ success = 0
 errors = 0
 skipped = 0
 
+# HEARTBEAT: if no strategy groups were detected, send a NO_TRADE log so Supabase sees the brain is alive.
+if len(by_strategy) == 0:
+    payload = {
+        "strategy_id": SWING_STRATEGY_ID,
+        "action": "NO_TRADE",
+        "reason": "no new swing signals",
+        "metadata": {
+            "ts": utc_now(),
+            "trades_analyzed": 0,
+            "details": "heartbeat: no strategies detected",
+            "strategy_id_type": "UNKNOWN",
+            "brain_canonical": None,
+        }
+    }
+
+    try:
+        r = requests.post(
+            f"{SUPABASE_URL}/functions/v1/brain-log",
+            headers=HEADERS,
+            json=payload
+        )
+        if r.status_code == 200:
+            print(f"HEARTBEAT OK -> {payload['action']}")
+            success += 1
+        else:
+            print(f"HEARTBEAT ERROR -> {r.status_code} {r.text}")
+            errors += 1
+    except Exception as e:
+        print("HEARTBEAT request failed:", e)
+        errors += 1
+
+# Normal flow: send aggregated decisions per strategy
 for strategy_id_raw, trades_ in by_strategy.items():
     action, reason = decide_strategy(trades_)
 
@@ -124,7 +169,6 @@ for strategy_id_raw, trades_ in by_strategy.items():
         registry_info = get_registry_info(registry, strategy_id_raw)
 
     # We keep `strategy_id` as-is for backward compatibility.
-    # Canonical fields go into metadata, with ZERO guessing.
     payload = {
         "strategy_id": strategy_id_raw,
         "action": action,
@@ -145,17 +189,21 @@ for strategy_id_raw, trades_ in by_strategy.items():
         skipped += 1
         continue
 
-    r = requests.post(
-        f"{SUPABASE_URL}/functions/v1/brain-log",
-        headers=HEADERS,
-        json=payload
-    )
+    try:
+        r = requests.post(
+            f"{SUPABASE_URL}/functions/v1/brain-log",
+            headers=HEADERS,
+            json=payload
+        )
 
-    if r.status_code == 200:
-        print(f"OK {strategy_id_raw} ({sid_type}) -> {action}")
-        success += 1
-    else:
-        print(f"ERROR {strategy_id_raw} ({sid_type}) -> {r.status_code} {r.text}")
+        if r.status_code == 200:
+            print(f"OK {strategy_id_raw} ({sid_type}) -> {action}")
+            success += 1
+        else:
+            print(f"ERROR {strategy_id_raw} ({sid_type}) -> {r.status_code} {r.text}")
+            errors += 1
+    except Exception as e:
+        print(f"ERROR {strategy_id_raw} request failed:", e)
         errors += 1
 
 print("\nSUMMARY")
