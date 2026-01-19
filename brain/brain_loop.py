@@ -7,7 +7,7 @@ LOOP_MINUTES = 15  # fréquence du cerveau
 def run_step(cmd):
     print(f"\n▶️ Lancement : {cmd}")
     result = subprocess.run(
-        ["python", cmd],
+        ["python3", cmd],
         capture_output=True,
         text=True,
         encoding="utf-8"
