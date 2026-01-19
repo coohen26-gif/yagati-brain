@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "last_updated": "2026-01-18T00:00:00+00:00",
+  "strategies": {
+    "DAY_EMA200_FLOW_V0": {
+      "name": "Day EMA200 Flow V0",
+      "concept": "DAY_FLOW",
+      "status": "TEST",
+      "is_active": true,
+      "direction": "BOTH",
+      "version": 0,
+      "notes": "Day trading BTC / ETH / PAXG / XAUT. EMA200 + breakout / continuation. RR ~1:1."
+    }
+  }
+}
