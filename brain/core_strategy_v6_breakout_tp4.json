@@ -1,0 +1,28 @@
+{
+  "strategy_id": "CORE_V6_BREAKOUT_TP4",
+  "status": "DRAFT",
+  "created_at": "2026-01-17T03:00:39.889847",
+  "rules": {
+    "trend_filter": "EMA200_ONLY",
+    "setup": {
+      "type": "BREAKOUT_STRUCTURE",
+      "confirm_timeframe": "1H",
+      "require_close_break": true
+    },
+    "entry": {
+      "type": "BREAKOUT_PULLBACK_OR_CONTINUATION",
+      "allow_pullback": true,
+      "allow_continuation": true
+    },
+    "stop_loss": "BELOW_BROKEN_STRUCTURE",
+    "take_profit": {
+      "type": "FIXED_R",
+      "r_multiple": 4.0
+    },
+    "rr_min": {
+      "exploration": 1.5,
+      "live": 3.0
+    }
+  },
+  "notes": "CORE V6 : m\u00eame breakout que V5, TP \u00e9tendu \u00e0 4R pour augmenter le RR."
+}

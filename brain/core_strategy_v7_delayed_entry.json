@@ -1,0 +1,30 @@
+{
+  "strategy_id": "CORE_V7_DELAYED_ENTRY",
+  "status": "DRAFT",
+  "created_at": "2026-01-17T03:09:32.188043",
+  "rules": {
+    "trend_filter": "EMA200_ONLY",
+    "setup": {
+      "type": "BREAKOUT_STRUCTURE",
+      "confirm_timeframe": "1H",
+      "require_close_break": true
+    },
+    "entry": {
+      "type": "DELAYED_CONFIRM_ENTRY",
+      "mode": "PULLBACK_ONLY",
+      "confirm_timeframe": "15m",
+      "require_second_close": true,
+      "require_pullback_touch": true
+    },
+    "stop_loss": "BELOW_BROKEN_STRUCTURE",
+    "take_profit": {
+      "type": "FIXED_R",
+      "r_multiple": 3.0
+    },
+    "rr_min": {
+      "exploration": 1.5,
+      "live": 3.0
+    }
+  },
+  "notes": "CORE V7 : entr\u00e9e retard\u00e9e + pullback confirm\u00e9 (\u00e9vite les entr\u00e9es trop t\u00f4t)."
+}

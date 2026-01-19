@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-01-17T04:14:38.282404+00:00",
+  "status": "OK",
+  "decisions": [
+    {
+      "action": "CREATE_DRAFT_STRATEGY",
+      "strategy_id": "CORE_V8_RANGE_FADE",
+      "reason": "All evaluated strategies are KILL/FREEZE; switching concept."
+    }
+  ],
+  "new_strategy_created": {
+    "strategy_id": "CORE_V8_RANGE_FADE",
+    "concept": "RANGE_FADE",
+    "status": "DRAFT",
+    "intent": "Test mean reversion regime when trend/breakout concepts fail."
+  },
+  "note": "V3 creates a new concept when all evaluated strategies are KILL/FREEZE."
+}

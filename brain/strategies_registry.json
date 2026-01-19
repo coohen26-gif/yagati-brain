@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "last_updated": "2026-01-18T00:00:00+00:00",
+  "strategies": {
+    "EMA200_PULLBACK_V1": {
+      "name": "EMA200 Pullback V1",
+      "concept": "TREND_PULLBACK",
+      "status": "TEST",
+      "is_active": true,
+      "direction": "BOTH",
+      "version": 1,
+      "parent": null,
+      "notes": "V0: setup propre. Dépend d’un tag scanner ou fallback permissif.",
+      "allowed_setups": ["PULLBACK_CONFIRMATION"],
+      "max_trades_per_run": 1
+    },
+    "EMA200_RANGE_BREAKOUT_V1": {
+      "name": "EMA200 Range Breakout V1",
+      "concept": "BREAKOUT",
+      "status": "TEST",
+      "is_active": true,
+      "direction": "BOTH",
+      "version": 1,
+      "parent": null,
+      "notes": "V0: breakout confirmé. Dépend d’un tag scanner ou fallback permissif.",
+      "allowed_setups": ["RANGE_BREAKOUT_CONFIRM"],
+      "max_trades_per_run": 1
+    },
+    "EMA200_CONTINUATION_AGGRESSIVE_V1": {
+      "name": "EMA200 Continuation Aggressive V1",
+      "concept": "CONTINUATION",
+      "status": "TEST",
+      "is_active": true,
+      "direction": "BOTH",
+      "version": 1,
+      "parent": null,
+      "notes": "V0: stratégie flow. Accepte ANY signal directionnel EMA200-compliant. Sert à produire de l’activité et des données.",
+      "allowed_setups": ["ANY"],
+      "max_trades_per_run": 2
+    }
+  }
+}

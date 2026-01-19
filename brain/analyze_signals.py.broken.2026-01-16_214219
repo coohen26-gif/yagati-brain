@@ -1,0 +1,189 @@
+import requests
+import json
+from math import fabs
+from datetime import datetime, timezone
+import os
+from collections import defaultdict
+
+# 🧠 STRATÉGIE PAR DÉFAUT (V1)
+DEFAULT_STRATEGY_ID = "7356eec6-b3af-4c99-957e-8f6a80db7d93"
+# 🎯 STRATÉGIES LIVE (V1)
+LIVE_STRATEGIES = {
+    "LONG": [
+        "27264511-cc45-4e19-aa6e-d5082a3cd834",  # Trend Rider LONG
+        "18155c34-f873-44c3-a04d-3b9e0030f659",  # EMA200_RSI_SAFE
+        "4c5534f3-6852-44e9-b461-24448633c63d",  # Exhaustion Reversal LONG
+    ],
+    "SHORT": [
+        "ef3266ce-ed72-4035-afd8-ae2de99ef7cf",  # Zone Hunter SHORT
+        "cf19d062-8979-42d4-862d-9d5e9b57d7d5",  # Market Shock JOKER
+    ]
+}
+
+def select_strategy(direction):
+    direction = direction.upper()
+    if direction in LIVE_STRATEGIES and LIVE_STRATEGIES[direction]:
+        return LIVE_STRATEGIES[direction][0]  # priorité LIVE
+    return DEFAULT_STRATEGY_ID
+
+
+SUPABASE_URL = "https://jhtfuqpnggmblsdftlry.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpodGZ1cXBuZ2dtYmxzZGZ0bHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5NDQxNzQsImV4cCI6MjA4MzUyMDE3NH0.hhdYOKXQJ4A9oADhuljNICDgABdu8jW54jfkXzidWdY"
+
+HEADERS = {
+    "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+    "Content-Type": "application/json"
+}
+
+LAST_RUN_FILE = "last_run.txt"
+
+def load_last_run():
+    if not os.path.exists(LAST_RUN_FILE):
+        return None
+    with open(LAST_RUN_FILE, "r") as f:
+        return datetime.fromisoformat(f.read().strip())
+
+def save_last_run(dt):
+    with open(LAST_RUN_FILE, "w") as f:
+        f.write(dt.isoformat())
+
+def fetch_signals():
+    r = requests.get(
+        f"{SUPABASE_URL}/functions/v1/brain-signals?limit=500",
+        headers=HEADERS,
+        timeout=10
+    )
+    r.raise_for_status()
+    return r.json().get("signals", [])
+
+def compute_rr(signal):
+    entry = signal.get("entry_price")
+    sl = signal.get("stop_loss")
+    tp2 = signal.get("tp2")
+    if not entry or not sl or not tp2:
+        return None
+    risk = fabs(entry - sl)
+    reward = fabs(tp2 - entry)
+    if risk == 0:
+        return None
+    return round(reward / risk, 2)
+
+def decide(rr):
+    # Phase V1.2 – décisions progressives (pas de KILL brutal)
+    if rr is None or rr < 1:
+        return "IGNORE"            # trop faible → aucune décision
+    if rr < 1.5:
+        return "ADJUST_REJECTED"   # rejet doux
+    if rr < 3:
+        return "ADJUST"            # amélioration requise
+    return "KEEP"                  # signal solide
+
+def score_strategy(stats):
+    """
+    Score simple V1 (0 → 1)
+    - poids KEEP
+    - pénalité IGNORE
+    - bonus RR
+    """
+    total = stats["total"]
+    if total == 0:
+        return 0
+
+    keep_rate = stats["keep"] / total
+    ignore_penalty = stats["ignore"] / total
+    rr_bonus = min(stats["avg_rr"] / 3, 1)  # normalisation RR
+
+    score = (0.6 * keep_rate) + (0.3 * rr_bonus) - (0.2 * ignore_penalty)
+    return round(max(0, min(score, 1)), 3)
+
+def decision_from_score(score):
+    if score < 0.4:
+        return "FREEZE"
+    if score < 0.7:
+        return "ADJUST"
+    return "KEEP"
+
+def main():
+    print("🧠 Analyse des NOUVEAUX signaux uniquement")
+
+    last_run = load_last_run()
+    now = datetime.now(timezone.utc)
+
+    signals = fetch_signals()
+    new_signals = []
+
+    for s in signals:
+        created_at = datetime.fromisoformat(
+            s["created_at"].replace("Z", "+00:00")
+        )
+        if last_run is None or created_at > last_run:
+            new_signals.append(s)
+
+    print(f"➡️ Signaux reçus : {len(signals)}")
+    print(f"🆕 Nouveaux signaux analysés : {len(new_signals)}")
+
+    decisions = []
+
+    for s in new_signals:
+        rr = compute_rr(s)
+        decision = decide(rr)
+
+        decisions.append({
+            "signal_id": s["id"],
+            "strategy_id": select_strategy(s["direction"]),
+            "symbol": s["symbol"],
+            "direction": s["direction"],
+            "rr": rr,
+            "decision": decision,
+            "created_at": s["created_at"]
+        })
+
+strategy_stats = defaultdict(lambda: {
+    "count": 0,
+    "score": 0.0
+})
+
+for d in decisions:
+    sid = d["strategy_id"]
+    rr = d["rr"]
+
+    if rr is None:
+        continue
+
+    strategy_stats[sid]["count"] += 1
+    strategy_stats[sid]["score"] += rr
+
+
+strategy_decisions = []
+
+for strategy_id, stats in strategy_stats.items():
+    if stats["count"] == 0:
+        continue
+
+    avg_rr = stats["score"] / stats["count"]
+
+    if avg_rr >= 3:
+        action = "KEEP"
+    elif avg_rr >= 1.5:
+        action = "ADJUST"
+    else:
+        action = "FREEZE"
+
+    strategy_decisions.append({
+        "strategy_id": strategy_id,
+        "avg_rr": round(avg_rr, 2),
+        "action": action,
+        "signals": stats["count"]
+    })
+
+with open("brain_analysis_step1.json", "w", encoding="utf-8") as f:
+        json.dump(decisions, f, indent=2)
+
+save_last_run(now)
+
+print("✅ Analyse terminée")
+print("📁 brain_analysis_step1.json mis à jour")
+print("🕒 Dernière exécution enregistrée")
+
+if __name__ == "__main__":
+    main()

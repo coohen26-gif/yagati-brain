@@ -1,0 +1,23 @@
+{
+  "strategy_id": "CORE_V2_TIGHT_ZONE",
+  "status": "DRAFT",
+  "created_at": "2026-01-17T02:03:14.756638",
+  "rules": {
+    "trend_filter": "EMA200_ONLY",
+    "zone_type": "LIQUIDITY_STRONG_ONLY",
+    "entry": {
+      "type": "INSIDE_ZONE_TIGHT",
+      "percent_of_zone": 0.3
+    },
+    "stop_loss": "OPPOSITE_ZONE_EDGE",
+    "take_profit": {
+      "type": "FIXED_R",
+      "r_multiple": 2.0
+    },
+    "rr_min": {
+      "exploration": 1.0,
+      "live": 2.5
+    }
+  },
+  "notes": "CORE V2 : entr\u00e9e resserr\u00e9e dans le dernier 30% de la zone pour am\u00e9liorer RR."
+}

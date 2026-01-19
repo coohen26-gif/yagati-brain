@@ -1,0 +1,146 @@
+[
+  {
+    "timestamp": "2026-01-18T00:45:48.892551+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "edfd8a4b-6a0d-466f-b7a9-907f90d579ee",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.508933+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "f97dd2ad-126c-4be2-a2f2-909d4e079fe9",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.509344+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "a954fe92-9c0a-46a8-8bd1-8b101ade23a4",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.509676+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "62f912e2-054d-4701-9875-b5438c197796",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.509870+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "6b787afc-94f6-4709-bb23-377e41cb6095",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.510130+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "f08afa2d-337c-44c6-8a81-0b01830ec6d7",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.510309+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "4de33f85-17d3-4a6a-8f5f-c609e5603b7e",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.510524+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "3632ce81-2c15-43b4-9c8a-904ca4665d26",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.510749+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "f0d77644-928d-4bd7-8d41-1f28d776930d",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.511019+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "9eb9402f-c947-4891-aae9-1dc4b53d472d",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.511247+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "b8efb1ee-bc79-4b61-b511-0ec4ab1bb282",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.511466+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "deda6852-a286-4baa-9c2d-15745fd71eaf",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.511660+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "b394c28b-c0d6-41a8-8a73-c2af3a5cd35a",
+    "symbol": "DOGE",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.511945+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "e1a56d15-850d-412b-85d9-85ff6bea62cd",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.512237+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "40be7c43-6ab1-410c-8a9b-d634ad033978",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.512485+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "16758301-5e6d-427c-a0b4-ce88e7a03d75",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.512715+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "cce55491-f598-42ae-a5f9-76af6bff2fe8",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  },
+  {
+    "timestamp": "2026-01-18T04:00:31.512996+00:00",
+    "reason": "pullback_without_breakdown",
+    "signal_id": "3593e901-3e7d-4b44-8de7-1b84fc1f890e",
+    "symbol": "BTC",
+    "market_regime": "TREND",
+    "market_phase": "PULLBACK"
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "strategy_id": "CORE_V1_TREND_ZONE",
+  "status": "DRAFT",
+  "created_at": "2026-01-17T20:53:03.351831",
+  "rules": {
+    "trend_filter": "EMA200_ONLY",
+    "zone_type": "LIQUIDITY_STRONG_ONLY",
+    "entry": "INSIDE_ZONE",
+    "stop_loss": "OPPOSITE_ZONE_EDGE",
+    "take_profit": {
+      "type": "FIXED_R",
+      "r_multiple": 2.0
+    },
+    "rr_min": {
+      "exploration": 1.0,
+      "live": 2.5
+    }
+  },
+  "notes": "Core simple pour apprentissage. Base saine, peu de r\u00e8gles."
+}

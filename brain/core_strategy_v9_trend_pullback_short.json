@@ -1,0 +1,50 @@
+{
+  "strategy_key": "CORE_V9_TREND_PULLBACK_SHORT",
+  "name": "Trend Pullback Short",
+  "direction": "SHORT",
+  "required_regime": "TREND",
+  "required_bias": "DOWN",
+  "timeframes": {
+    "macro": "1D",
+    "structure": "4H",
+    "execution": "1H"
+  },
+  "rules": {
+    "trend_filter": {
+      "ema200_daily": "price_below"
+    },
+    "pullback_zone": {
+      "ema": ["EMA20", "EMA50"],
+      "max_distance_pct": 1.2
+    },
+    "entry_confirmation": {
+      "type": "rejection",
+      "requirements": [
+        "upper_wick_present",
+        "close_below_pullback_ema"
+      ]
+    },
+    "stop_loss": {
+      "method": "above_last_swing_or_ema50",
+      "buffer_pct": 0.3
+    },
+    "take_profit": {
+      "tp1": "recent_low",
+      "tp2": "measured_move_optional"
+    },
+    "risk_reward": {
+      "evaluation_basis": "TP1_ONLY",
+      "min_rr": 2.5,
+      "keep_rr": 3.0
+    }
+  },
+  "filters": {
+    "no_trade_if": [
+      "market_regime != TREND",
+      "trend_bias != DOWN",
+      "rr < 2.5"
+    ]
+  },
+  "status": "DRAFT",
+  "notes": "Strict trend pullback short. No trades outside TREND(DOWN). RR evaluated on TP1 only."
+}

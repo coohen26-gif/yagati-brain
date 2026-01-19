@@ -1,0 +1,40 @@
+{
+  "strategy_key": "CORE_V10_TREND_BREAKDOWN_SHORT",
+  "name": "Trend Breakdown Short Core V10",
+  "concept": "TREND_BREAKDOWN",
+  "status": "DRAFT",
+  "direction": "SHORT",
+  "version": 10,
+  "parent": null,
+  "required_regime": "TREND",
+  "required_bias": "DOWN",
+  "notes": "Continuation short en tendance baissière. Cassure de plus bas sans pullback. RR évalué sur TP1 uniquement.",
+  "rules": {
+    "trend_filter": {
+      "ema200_daily": "price_below",
+      "ema_slope": "down"
+    },
+    "breakdown_condition": {
+      "structure": "lower_low_break",
+      "min_body_pct": 0.4,
+      "no_upper_wick": true
+    },
+    "entry": {
+      "type": "break_and_close",
+      "timeframe": "1H"
+    },
+    "stop_loss": {
+      "method": "above_last_lower_high",
+      "buffer_pct": 0.25
+    },
+    "take_profit": {
+      "tp1": "measured_move_short",
+      "tp2": "optional_extension"
+    },
+    "risk_reward": {
+      "evaluation_basis": "TP1_ONLY",
+      "min_rr": 2.5,
+      "keep_rr": 3.0
+    }
+  }
+}

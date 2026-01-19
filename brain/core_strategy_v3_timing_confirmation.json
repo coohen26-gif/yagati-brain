@@ -1,0 +1,28 @@
+{
+  "strategy_id": "CORE_V3_TIMING_CONFIRM",
+  "status": "DRAFT",
+  "created_at": "2026-01-17T02:35:19.713598",
+  "rules": {
+    "trend_filter": "EMA200_ONLY",
+    "zone_type": "LIQUIDITY_STRONG_ONLY",
+    "entry": {
+      "type": "ZONE_REJECTION_CONFIRM",
+      "timeframe": [
+        "5m",
+        "15m"
+      ],
+      "require_close_reject": true,
+      "require_wick_reject": true
+    },
+    "stop_loss": "OPPOSITE_ZONE_EDGE",
+    "take_profit": {
+      "type": "FIXED_R",
+      "r_multiple": 2.0
+    },
+    "rr_min": {
+      "exploration": 1.0,
+      "live": 2.5
+    }
+  },
+  "notes": "CORE V3 : ajout d'une confirmation timing (rejection) pour filtrer le bruit."
+}

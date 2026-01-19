@@ -1,0 +1,20 @@
+[
+  {
+    "strategy_id": "27264511-cc45-4e19-aa6e-d5082a3cd834",
+    "total": 8,
+    "keep": 0,
+    "adjust": 0,
+    "reject": 1,
+    "ignore": 7,
+    "avg_rr": 0.585
+  },
+  {
+    "strategy_id": "ef3266ce-ed72-4035-afd8-ae2de99ef7cf",
+    "total": 75,
+    "keep": 6,
+    "adjust": 1,
+    "reject": 1,
+    "ignore": 67,
+    "avg_rr": 1.0434090909090907
+  }
+]
