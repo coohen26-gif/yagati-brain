@@ -75,7 +75,8 @@ def get_registry_info(registry: dict, brain_key: str):
 trades = []
 try:
     with open(ANALYSIS_FILE, "r", encoding="utf-8") as f:
-        trades = json.load(f) or []
+        data = json.load(f)
+        trades = data if data is not None else []
 except FileNotFoundError:
     trades = []
 except Exception as e:

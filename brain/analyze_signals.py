@@ -83,6 +83,20 @@ def write_step1(items):
         json.dump(items, f, indent=2)
 
 def compute_rr(entry, stop, tp):
+    """
+    Calculate risk/reward ratio for a trade.
+    
+    Args:
+        entry: Entry price (float or None)
+        stop: Stop loss price (float or None)
+        tp: Take profit price (float or None)
+    
+    Returns:
+        float: Risk/reward ratio rounded to 2 decimals, or None if calculation not possible
+        
+    Formula: abs((tp - entry) / (entry - stop))
+    Works for both LONG and SHORT trades due to abs()
+    """
     try:
         if entry is None or stop is None or tp is None:
             return None
