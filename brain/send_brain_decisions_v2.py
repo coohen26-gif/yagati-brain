@@ -1,3 +1,4 @@
+import os
 import json
 import re
 import requests
@@ -7,8 +8,9 @@ from datetime import datetime, timezone
 # =========================
 # CONFIG
 # =========================
-SUPABASE_URL = "https://jhtfuqpnggmblsdftlry.supabase.co"
-ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+# Secrets and endpoints MUST come from environment variables only
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
 
 HEADERS = {
     "Authorization": f"Bearer {ANON_KEY}",
@@ -100,6 +102,8 @@ print(f"Brain detected {len(by_strategy)} strategy_id groups")
 if not trades:
     print("🧠 Brain run OK — no new signals to analyze")
 
+# NOTE: Heartbeat/NO_TRADE logic removed intentionally. When there are no strategy groups, the script must send NOTHING.
+
 # =========================
 # DECISION LOGIC
 # =========================
@@ -126,37 +130,6 @@ registry = load_registry()
 success = 0
 errors = 0
 skipped = 0
-
-# HEARTBEAT: if no strategy groups were detected, send a NO_TRADE log so Supabase sees the brain is alive.
-if len(by_strategy) == 0:
-    payload = {
-        "strategy_id": SWING_STRATEGY_ID,
-        "action": "NO_TRADE",
-        "reason": "no new swing signals",
-        "metadata": {
-            "ts": utc_now(),
-            "trades_analyzed": 0,
-            "details": "heartbeat: no strategies detected",
-            "strategy_id_type": "UNKNOWN",
-            "brain_canonical": None,
-        }
-    }
-
-    try:
-        r = requests.post(
-            f"{SUPABASE_URL}/functions/v1/brain-log",
-            headers=HEADERS,
-            json=payload
-        )
-        if r.status_code == 200:
-            print(f"HEARTBEAT OK -> {payload['action']}")
-            success += 1
-        else:
-            print(f"HEARTBEAT ERROR -> {r.status_code} {r.text}")
-            errors += 1
-    except Exception as e:
-        print("HEARTBEAT request failed:", e)
-        errors += 1
 
 # Normal flow: send aggregated decisions per strategy
 for strategy_id_raw, trades_ in by_strategy.items():
