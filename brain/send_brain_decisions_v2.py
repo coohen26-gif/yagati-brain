@@ -75,7 +75,7 @@ def get_registry_info(registry: dict, brain_key: str):
 trades = []
 try:
     with open(ANALYSIS_FILE, "r", encoding="utf-8") as f:
-        trades = json.load(f) or []
+        trades = json.load(f)
 except FileNotFoundError:
     trades = []
 except Exception as e:
@@ -84,7 +84,7 @@ except Exception as e:
 
 # Ensure we have a list
 if not isinstance(trades, list):
-    trades = [trades]
+    trades = [trades] if trades else []
 
 # =========================
 # GROUP BY STRATEGY
