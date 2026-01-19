@@ -22,7 +22,7 @@ while True:
     print("\n==============================")
     print("🕒", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-    run_step("analyze_signals.py")
+    run_step("brain/analyze_signals.py")
     run_step("brain/send_brain_decisions_v2.py")
 
     print(f"\n⏸️ Pause {LOOP_MINUTES} minutes...\n")
