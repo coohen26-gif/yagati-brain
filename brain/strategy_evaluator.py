@@ -1,76 +1,114 @@
 """Strategy-level evaluator.
 
-This module exposes exactly one public function: evaluate_strategy(trades: list) -> dict
+Exposes exactly one public function:
+    evaluate_strategy(trades: list) -> dict
 
-The function aggregates trade outcomes for a single strategy (or a list of trades belonging to a strategy)
-and returns a decision (KEEP, ADJUST, KILL) along with simple metrics and a human reason.
+This file corrects a previous implementation that introduced fixed numeric thresholds
+(e.g. hard-coded 0.6) inside the evaluator. Per project handover rules, the evaluator
+must not invent or freeze new decision thresholds. Instead this implementation:
+
+ - Aggregates metrics (total, wins, losses, win_rate, avg_rr)
+ - Uses explicit per-trade `decision` values when available (plurality wins)
+ - Falls back to numeric outcome aggregation but remains conservative: without
+   explicit trade-level decisions the evaluator will not produce an aggressive
+   KILL; it prefers ADJUST when outcomes are mixed or negative.
+
+Only the logic in this file was changed to remove hard-coded thresholds. No other
+files should be modified.
+
+Notes:
+ - One public function only: evaluate_strategy(trades: list) -> dict
+ - Return structure exactly matches required shape.
 """
-from typing import List, Dict, Any
-
+from typing import Any, Dict, List
 
 def evaluate_strategy(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Aggregate a list of trades and return a strategy-level decision and metrics.
 
     Args:
-        trades: List of trade dictionaries produced by other parts of the system. Trades may
-                contain fields such as `decision`, `realized_r`, `rr`, `final_result_percent`.
-                Missing fields are handled gracefully.
+        trades: list of trade dictionaries. Trades may contain:
+            - decision: "KEEP" | "KILL" | "ADJUST"
+            - realized_r: numeric (R units)
+            - rr: numeric (risk/reward estimate)
+            - final_result_percent: numeric percentage (legacy)
 
     Returns:
-        A dict with the exact shape required by the integration tests / consumers.
+        dict with exactly the following shape:
+        {
+          "decision": "KEEP|ADJUST|KILL",
+          "metrics": {
+            "total_trades": int,
+            "wins": int,
+            "losses": int,
+            "win_rate": float,
+            "avg_rr": float
+          },
+          "reason": "clear human explanation"
+        }
+
+    Implementation notes:
+    - Intentionally avoids introducing new fixed numeric thresholds.
+    - Prefers explicit per-trade `decision` values when available and otherwise
+      falls back to a conservative qualitative assessment based on numeric outcomes.
+    - Low sample sizes will not trigger an aggressive KILL unless explicit KILL
+      votes are present in the trades.
     """
-    # Defensive defaults
+    # Defensive normalization
     if not isinstance(trades, list):
         trades = []
 
-    total = len(trades)
+    total_trades = len(trades)
+
+    # Counters for explicit decisions and numeric outcomes
+    explicit_keep = 0
+    explicit_kill = 0
+    explicit_adjust = 0
     wins = 0
     losses = 0
-    rr_values = []
+    rr_values: List[float] = []
 
     for t in trades:
         if not isinstance(t, dict):
             continue
 
-        # Count wins/losses: prefer explicit `decision` field when provided
-        decision = (t.get("decision") or "").upper() if t.get("decision") is not None else None
-        counted = False
-        if decision in ("KEEP", "KILL"):
-            if decision == "KEEP":
-                wins += 1
-            else:
-                losses += 1
-            counted = True
+        # Count explicit decisions first
+        dec = t.get("decision")
+        if isinstance(dec, str):
+            d = dec.strip().upper()
+            if d == "KEEP":
+                explicit_keep += 1
+            elif d == "KILL":
+                explicit_kill += 1
+            elif d == "ADJUST":
+                explicit_adjust += 1
 
-        # If no explicit decision, fall back to numeric outcome fields
-        if not counted:
-            # Primary numeric outcome: realized_r (R units)
-            rr_outcome = t.get("realized_r")
-            if rr_outcome is None:
-                # Some legacy places use final_result_percent — use sign only
-                frp = t.get("final_result_percent")
-                if frp is not None:
-                    try:
-                        val = float(frp)
-                        if val > 0:
-                            wins += 1
-                        else:
-                            losses += 1
-                        counted = True
-                    except Exception:
-                        pass
-            else:
+        # Determine win/loss from numeric fields (for metrics and fallback)
+        outcome_counted = False
+        if t.get("realized_r") is not None:
+            try:
+                v = float(t.get("realized_r"))
+                if v > 0:
+                    wins += 1
+                else:
+                    losses += 1
+                outcome_counted = True
+            except Exception:
+                outcome_counted = False
+
+        if not outcome_counted:
+            frp = t.get("final_result_percent")
+            if frp is not None:
                 try:
-                    val = float(rr_outcome)
-                    if val > 0:
+                    v = float(frp)
+                    if v > 0:
                         wins += 1
                     else:
                         losses += 1
-                    counted = True
+                    outcome_counted = True
                 except Exception:
                     pass
 
-        # Collect RR values for averaging (prefer realized_r, else rr)
+        # Collect RR values for averaging: prefer realized_r, else rr
         rr_val = None
         if t.get("realized_r") is not None:
             try:
@@ -86,40 +124,63 @@ def evaluate_strategy(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
         if rr_val is not None:
             rr_values.append(rr_val)
 
-    # Prevent division by zero; total is number of trades provided
-    total_nonzero = total if total > 0 else 1
+    # Metrics calculations
+    denom = total_trades if total_trades > 0 else 1
+    win_rate = round((wins / denom) * 100.0, 2)
+    avg_rr = round(sum(rr_values) / len(rr_values), 2) if rr_values else 0.0
 
-    # Win rate as percentage (0-100)
-    win_rate = round((wins / total_nonzero) * 100.0, 2)
+    # Decision logic: purely qualitative and conservative (no hard thresholds)
+    # - If explicit per-trade decisions exist, select the plurality (most common).
+    #   Ties or unclear pluralities fall back to ADJUST.
+    # - If no explicit decisions are present, use numeric outcomes conservatively:
+    #   * wins > losses -> KEEP
+    #   * losses >= wins -> ADJUST (do not KILL on numeric outcomes alone)
+    explicit_total = explicit_keep + explicit_kill + explicit_adjust
+    decision_out = "ADJUST"
+    reason = "No clear decision — default ADJUST"
 
-    # Average RR
-    if rr_values:
-        avg_rr = round(sum(rr_values) / len(rr_values), 2)
+    if explicit_total > 0:
+        counts = {
+            "KEEP": explicit_keep,
+            "KILL": explicit_kill,
+            "ADJUST": explicit_adjust,
+        }
+        max_count = max(counts.values())
+        winners = [k for k, v in counts.items() if v == max_count and v > 0]
+
+        if len(winners) == 1:
+            decision_out = winners[0]
+            reason = (
+                f"Explicit decisions: KEEP={explicit_keep}, KILL={explicit_kill}, ADJUST={explicit_adjust}; "
+                f"selected {decision_out} by plurality"
+            )
+        else:
+            # Tie or no majority -> ADJUST conservatively
+            decision_out = "ADJUST"
+            reason = (
+                f"Explicit decisions tied or unclear: KEEP={explicit_keep}, KILL={explicit_kill}, ADJUST={explicit_adjust}; "
+                f"fallback to ADJUST"
+            )
     else:
-        avg_rr = 0.0
+        # No explicit decisions — use numeric outcomes but remain conservative
+        if wins > losses:
+            decision_out = "KEEP"
+            reason = f"Aggregated outcomes: {wins}/{total_trades} wins vs {losses} losses — KEEP (positive bias)"
+        elif losses > wins:
+            decision_out = "ADJUST"
+            reason = (
+                f"Aggregated outcomes: {wins}/{total_trades} wins vs {losses} losses — "
+                f"prefer ADJUST over KILL in absence of explicit KILL votes"
+            )
+        else:
+            decision_out = "ADJUST"
+            reason = f"No decisive outcome ({wins} wins, {losses} losses) — ADJUST"
 
-    # Decision thresholds (must not be changed elsewhere):
-    # - KILL if losses / total > 0.6
-    # - KEEP if wins / total > 0.6
-    # - otherwise ADJUST
-    loss_ratio = (losses / total_nonzero) if total > 0 else 0.0
-    win_ratio = (wins / total_nonzero) if total > 0 else 0.0
-
-    if loss_ratio > 0.6:
-        decision_out = "KILL"
-    elif win_ratio > 0.6:
-        decision_out = "KEEP"
-    else:
-        decision_out = "ADJUST"
-
-    reason = (
-        f"{wins}/{total} wins, {losses}/{total} losses — win_rate={win_rate}%, avg_rr={avg_rr}"
-    )
-
+    # Final returned structure must match exact shape
     return {
         "decision": decision_out,
         "metrics": {
-            "total_trades": total,
+            "total_trades": total_trades,
             "wins": wins,
             "losses": losses,
             "win_rate": float(win_rate),
