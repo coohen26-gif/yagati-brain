@@ -40,10 +40,14 @@ def get_health_snapshot() -> Dict[str, Any]:
         r = requests.get(url, headers=HEADERS, params=params, timeout=10)
         r.raise_for_status()
         snapshot["checks"]["signals_endpoint"] = "ok"
-    except Exception as e:
+    except requests.exceptions.HTTPError as http_err:
         snapshot["status"] = "degraded"
         snapshot["checks"]["signals_endpoint"] = "error"
-        snapshot["errors"].append(f"Signals endpoint check failed: {str(e)}")
+        snapshot["errors"].append(f"Signals endpoint HTTP error: {http_err}")
+    except requests.exceptions.RequestException as req_err:
+        snapshot["status"] = "degraded"
+        snapshot["checks"]["signals_endpoint"] = "error"
+        snapshot["errors"].append(f"Signals endpoint request error: {req_err}")
     
     # Check market data endpoint
     try:
@@ -56,10 +60,14 @@ def get_health_snapshot() -> Dict[str, Any]:
         r = requests.get(url, headers=HEADERS, params=params, timeout=10)
         r.raise_for_status()
         snapshot["checks"]["market_data_endpoint"] = "ok"
-    except Exception as e:
+    except requests.exceptions.HTTPError as http_err:
         snapshot["status"] = "degraded"
         snapshot["checks"]["market_data_endpoint"] = "error"
-        snapshot["errors"].append(f"Market data endpoint check failed: {str(e)}")
+        snapshot["errors"].append(f"Market data endpoint HTTP error: {http_err}")
+    except requests.exceptions.RequestException as req_err:
+        snapshot["status"] = "degraded"
+        snapshot["checks"]["market_data_endpoint"] = "error"
+        snapshot["errors"].append(f"Market data endpoint request error: {req_err}")
     
     return snapshot
 
