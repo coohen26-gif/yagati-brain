@@ -7,7 +7,7 @@
     "ema_fast": 20,
     "ema_slow": 200,
     "price_above_ema_slow": true,
-    "rsi_min": 45,
+    "rsi_min": 40,
     "rsi_max": 75,
     "pullback_pct": 0.3
   },
@@ -20,7 +20,7 @@
   "exit": {
     "sl_type": "ATR",
     "sl_atr_mult": 1.5,
-    "tp_r": 3.0,
+    "tp_r": 3.5,
     "time_stop": 120
   }
 }

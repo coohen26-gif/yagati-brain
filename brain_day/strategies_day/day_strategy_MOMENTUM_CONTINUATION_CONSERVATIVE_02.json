@@ -4,10 +4,10 @@
   "strategy_family": "MOMENTUM_CONTINUATION",
   "risk_level": "CONSERVATIVE",
   "entry": {
-    "ema_fast": 8,
+    "ema_fast": 12,
     "ema_slow": 200,
     "price_above_ema_slow": true,
-    "rsi_min": 55,
+    "rsi_min": 50,
     "rsi_max": 70,
     "pullback_pct": 0.3
   },
@@ -19,7 +19,7 @@
   },
   "exit": {
     "sl_type": "ATR",
-    "sl_atr_mult": 2.0,
+    "sl_atr_mult": 2.5,
     "tp_r": 3.0,
     "time_stop": 150
   }

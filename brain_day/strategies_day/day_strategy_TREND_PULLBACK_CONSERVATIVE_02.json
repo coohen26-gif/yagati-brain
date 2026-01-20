@@ -4,12 +4,12 @@
   "strategy_family": "TREND_PULLBACK",
   "risk_level": "CONSERVATIVE",
   "entry": {
-    "ema_fast": 8,
+    "ema_fast": 12,
     "ema_slow": 200,
     "price_above_ema_slow": true,
-    "rsi_min": 40,
+    "rsi_min": 35,
     "rsi_max": 60,
-    "pullback_pct": 1.0
+    "pullback_pct": 0.8
   },
   "filters": {
     "trend_required": true,

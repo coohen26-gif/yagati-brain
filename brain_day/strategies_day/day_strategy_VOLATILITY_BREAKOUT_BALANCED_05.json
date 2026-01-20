@@ -4,12 +4,12 @@
   "strategy_family": "VOLATILITY_BREAKOUT",
   "risk_level": "BALANCED",
   "entry": {
-    "ema_fast": 20,
+    "ema_fast": 34,
     "ema_slow": 200,
     "price_above_ema_slow": true,
     "rsi_min": 40,
     "rsi_max": 70,
-    "pullback_pct": 0.5
+    "pullback_pct": 0.4
   },
   "filters": {
     "trend_required": true,

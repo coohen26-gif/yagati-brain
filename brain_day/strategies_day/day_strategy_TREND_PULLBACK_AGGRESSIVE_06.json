@@ -4,10 +4,10 @@
   "strategy_family": "TREND_PULLBACK",
   "risk_level": "AGGRESSIVE",
   "entry": {
-    "ema_fast": 20,
+    "ema_fast": 34,
     "ema_slow": 50,
     "price_above_ema_slow": true,
-    "rsi_min": 30,
+    "rsi_min": 35,
     "rsi_max": 70,
     "pullback_pct": 0.3
   },

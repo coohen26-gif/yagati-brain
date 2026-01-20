@@ -118,6 +118,15 @@ def post_diagnostics_api(payload: List[Dict[str, Any]]):
 # =====================================================
 
 def run_strategy(strategy: Dict[str, Any], context: Dict[str, Any], swing_bias: Dict[str, str], run_id: str):
+    """
+    Run simplified diagnostic checks for a strategy.
+    
+    NOTE: This is a simplified scanner that performs basic validation checks.
+    The full strategy parameters from JSON (entry.ema_fast, entry.ema_slow, 
+    filters.atr_min, etc.) are loaded and available for future implementation
+    of complete strategy logic. Currently, the scanner uses simplified checks
+    compatible with both old and new strategy formats.
+    """
     diagnostics = []
     assets = context.get("assets", {})
     now = utc_now()

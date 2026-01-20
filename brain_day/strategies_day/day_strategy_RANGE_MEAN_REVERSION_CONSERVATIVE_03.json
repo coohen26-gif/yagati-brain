@@ -8,12 +8,12 @@
     "ema_slow": 150,
     "price_above_ema_slow": false,
     "rsi_min": 30,
-    "rsi_max": 70,
+    "rsi_max": 75,
     "pullback_pct": 2.0
   },
   "filters": {
     "trend_required": false,
-    "ema_slope_min": 0.0,
+    "ema_slope_min": 0.0002,
     "atr_min": 0.0001,
     "atr_max": 0.008
   },

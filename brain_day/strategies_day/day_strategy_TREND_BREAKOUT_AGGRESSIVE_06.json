@@ -9,7 +9,7 @@
     "price_above_ema_slow": true,
     "rsi_min": 40,
     "rsi_max": 80,
-    "pullback_pct": 0.1
+    "pullback_pct": 0.15
   },
   "filters": {
     "trend_required": true,
@@ -20,7 +20,7 @@
   "exit": {
     "sl_type": "ATR",
     "sl_atr_mult": 1.0,
-    "tp_r": 4.0,
+    "tp_r": 4.5,
     "time_stop": 90
   }
 }

@@ -4,10 +4,10 @@
   "strategy_family": "RANGE_MEAN_REVERSION",
   "risk_level": "CONSERVATIVE",
   "entry": {
-    "ema_fast": 8,
+    "ema_fast": 12,
     "ema_slow": 150,
     "price_above_ema_slow": false,
-    "rsi_min": 30,
+    "rsi_min": 25,
     "rsi_max": 70,
     "pullback_pct": 2.0
   },
@@ -21,6 +21,6 @@
     "sl_type": "ATR",
     "sl_atr_mult": 3.0,
     "tp_r": 1.5,
-    "time_stop": 300
+    "time_stop": 270
   }
 }
