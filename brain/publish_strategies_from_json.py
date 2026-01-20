@@ -41,7 +41,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    raise RuntimeError("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing")
+    raise RuntimeError("Missing required Supabase environment variables")
 
 HEADERS = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -185,12 +185,12 @@ def upsert_strategies(strategies, dry_run=False):
     url = f"{SUPABASE_URL}/rest/v1/strategies"
     
     try:
-        # Use merge-duplicates to upsert based on primary key
+        # Use merge-duplicates to upsert based on strategy_key (primary key)
         r = requests.post(
             url,
             headers={**HEADERS, "Prefer": "resolution=merge-duplicates"},
             json=strategies,
-            timeout=20,
+            timeout=10,
         )
         
         r.raise_for_status()
