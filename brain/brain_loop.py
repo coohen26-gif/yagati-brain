@@ -3,10 +3,11 @@ import subprocess
 from datetime import datetime
 
 LOOP_MINUTES = 15  # fréquence du cerveau
+
 def run_step(cmd):
     print(f"\n▶️ Lancement : {cmd}")
-    result = subprocess.run([
-        "python3", cmd],
+    result = subprocess.run(
+        ["python3", cmd],
         capture_output=True,
         text=True,
         encoding="utf-8"
@@ -22,7 +23,6 @@ while True:
     print("\n==============================")
     print("🕒", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-    # FIX: call analyze_signals using correct relative path inside the brain package
     run_step("brain/analyze_signals.py")
     run_step("brain/send_brain_decisions_v2.py")
 
