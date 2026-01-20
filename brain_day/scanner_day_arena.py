@@ -135,7 +135,7 @@ def post_diagnostics_api(payload: List[Dict[str, Any]]):
         if not r.ok:
             print(f"[WARN] Diagnostics insert failed: {r.status_code} {r.text}")
         else:
-            print(f"[INFO] Diagnostics uploaded: count={{len(payload)}}")
+        print(f"[INFO] Diagnostics uploaded: count={len(payload)}")
     except requests.RequestException as e:
         print(f"[WARN] Supabase request failed: {e}")
 
