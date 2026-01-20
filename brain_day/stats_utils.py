@@ -38,13 +38,20 @@ def win_loss_counts(trades: List[Any]) -> Dict[str, int]:
         # Check for various result field names
         result = None
         if isinstance(trade, dict):
-            result = trade.get("final_result_percent") or trade.get("result") or trade.get("rr")
+            # Use explicit None checks to handle 0 values correctly
+            if "final_result_percent" in trade:
+                result = trade["final_result_percent"]
+            elif "result" in trade:
+                result = trade["result"]
+            elif "rr" in trade:
+                result = trade["rr"]
         
         if result is not None:
             if result > 0:
                 wins += 1
-            else:
+            elif result < 0:
                 losses += 1
+            # result == 0 is breakeven, not counted as win or loss
     
     return {"wins": wins, "losses": losses}
 
