@@ -4,9 +4,8 @@ Exposes exactly one public function:
     evaluate_strategy(trades: list) -> dict
 
 This file corrects a previous implementation that introduced fixed numeric thresholds
-(e.g. hard-coded 0.6) inside the evaluator. Per project handover rules, the evaluator
-must not invent or freeze new decision thresholds. Instead this implementation:
-
+inside the evaluator (e.g. 0.6). Per project handover rules, the evaluator must not
+invent or freeze new decision thresholds. Instead this implementation:
  - Aggregates metrics (total, wins, losses, win_rate, avg_rr)
  - Uses explicit per-trade `decision` values when available (plurality wins)
  - Falls back to numeric outcome aggregation but remains conservative: without
@@ -14,13 +13,11 @@ must not invent or freeze new decision thresholds. Instead this implementation:
    KILL; it prefers ADJUST when outcomes are mixed or negative.
 
 Only the logic in this file was changed to remove hard-coded thresholds. No other
-files should be modified.
-
-Notes:
- - One public function only: evaluate_strategy(trades: list) -> dict
- - Return structure exactly matches required shape.
+files were modified.
 """
+
 from typing import Any, Dict, List
+
 
 def evaluate_strategy(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Aggregate a list of trades and return a strategy-level decision and metrics.
@@ -46,12 +43,12 @@ def evaluate_strategy(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
           "reason": "clear human explanation"
         }
 
-    Implementation notes:
-    - Intentionally avoids introducing new fixed numeric thresholds.
-    - Prefers explicit per-trade `decision` values when available and otherwise
-      falls back to a conservative qualitative assessment based on numeric outcomes.
-    - Low sample sizes will not trigger an aggressive KILL unless explicit KILL
-      votes are present in the trades.
+    Notes:
+    - This implementation intentionally avoids introducing new fixed thresholds.
+      It prefers explicit per-trade `decision` values when available and otherwise
+      falls back to a conservative, qualitative assessment based on numeric outcomes.
+    - Low sample sizes do not trigger an aggressive KILL unless the trades
+      themselves explicitly recorded KILL decisions.
     """
     # Defensive normalization
     if not isinstance(trades, list):
@@ -59,7 +56,7 @@ def evaluate_strategy(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     total_trades = len(trades)
 
-    # Counters for explicit decisions and numeric outcomes
+    # Counters
     explicit_keep = 0
     explicit_kill = 0
     explicit_adjust = 0
@@ -82,7 +79,7 @@ def evaluate_strategy(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
             elif d == "ADJUST":
                 explicit_adjust += 1
 
-        # Determine win/loss from numeric fields (for metrics and fallback)
+        # Determine win/loss from numeric fields (used for metrics and fallback)
         outcome_counted = False
         if t.get("realized_r") is not None:
             try:
@@ -129,22 +126,26 @@ def evaluate_strategy(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
     win_rate = round((wins / denom) * 100.0, 2)
     avg_rr = round(sum(rr_values) / len(rr_values), 2) if rr_values else 0.0
 
-    # Decision logic: purely qualitative and conservative (no hard thresholds)
+    # Decision logic - no new fixed numeric thresholds are introduced here.
     # - If explicit per-trade decisions exist, select the plurality (most common).
     #   Ties or unclear pluralities fall back to ADJUST.
     # - If no explicit decisions are present, use numeric outcomes conservatively:
     #   * wins > losses -> KEEP
-    #   * losses >= wins -> ADJUST (do not KILL on numeric outcomes alone)
+    #   * losses >= wins -> ADJUST (conservative: do not return KILL solely
+    #     on numeric outcomes to avoid aggressive actions on limited data)
+
     explicit_total = explicit_keep + explicit_kill + explicit_adjust
     decision_out = "ADJUST"
     reason = "No clear decision — default ADJUST"
 
     if explicit_total > 0:
+        # Determine plurality among explicit decisions
         counts = {
             "KEEP": explicit_keep,
             "KILL": explicit_kill,
             "ADJUST": explicit_adjust,
         }
+        # Find the decision(s) with the maximum count
         max_count = max(counts.values())
         winners = [k for k, v in counts.items() if v == max_count and v > 0]
 
