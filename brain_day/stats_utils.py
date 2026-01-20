@@ -44,9 +44,17 @@ def win_loss_counts(trades: List[Any]) -> Dict[str, int]:
         # Try to get realized_r first (from dict or attribute)
         rr = None
         if isinstance(trade, dict):
-            rr = trade.get("realized_r") or trade.get("rr") or trade.get("final_result_percent")
+            rr = trade.get("realized_r")
+            if rr is None:
+                rr = trade.get("rr")
+            if rr is None:
+                rr = trade.get("final_result_percent")
         else:
-            rr = getattr(trade, "realized_r", None) or getattr(trade, "rr", None) or getattr(trade, "final_result_percent", None)
+            rr = getattr(trade, "realized_r", None)
+            if rr is None:
+                rr = getattr(trade, "rr", None)
+            if rr is None:
+                rr = getattr(trade, "final_result_percent", None)
         
         if rr is None:
             continue
@@ -103,9 +111,17 @@ def avg_rr(trades: List[Any]) -> float:
         # Try to get realized_r first (from dict or attribute)
         rr = None
         if isinstance(trade, dict):
-            rr = trade.get("realized_r") or trade.get("rr") or trade.get("final_result_percent")
+            rr = trade.get("realized_r")
+            if rr is None:
+                rr = trade.get("rr")
+            if rr is None:
+                rr = trade.get("final_result_percent")
         else:
-            rr = getattr(trade, "realized_r", None) or getattr(trade, "rr", None) or getattr(trade, "final_result_percent", None)
+            rr = getattr(trade, "realized_r", None)
+            if rr is None:
+                rr = getattr(trade, "rr", None)
+            if rr is None:
+                rr = getattr(trade, "final_result_percent", None)
         
         if rr is not None:
             total_rr += rr

@@ -16,9 +16,28 @@ __all__ = ["compute_health_snapshot"]
 def compute_health_snapshot(trades: List[Any]) -> Dict[str, Any]:
     """
     Compute a lightweight health snapshot from a list of trades.
+    
+    Args:
+        trades: List of trade objects (dict or object with attributes)
+        
+    Returns:
+        Dictionary containing trade metrics:
+        - total_trades: Total number of trades
+        - wins: Number of winning trades
+        - losses: Number of losing trades
+        - win_rate: Win rate as a float (0.0-1.0)
+        - avg_rr: Average Risk-Reward ratio
+        - has_activity: Whether there are any trades
     """
     if not trades:
-        trades = []
+        return {
+            "total_trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "win_rate": 0.0,
+            "avg_rr": 0.0,
+            "has_activity": False,
+        }
 
     total = count_trades(trades)
     wl = win_loss_counts(trades)
