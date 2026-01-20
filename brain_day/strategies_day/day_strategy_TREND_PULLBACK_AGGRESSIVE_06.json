@@ -1,0 +1,26 @@
+{
+  "strategy_key": "TREND_PULLBACK_AGGRESSIVE_06",
+  "trading_horizon": "DAY",
+  "strategy_family": "TREND_PULLBACK",
+  "risk_level": "AGGRESSIVE",
+  "entry": {
+    "ema_fast": 34,
+    "ema_slow": 50,
+    "price_above_ema_slow": true,
+    "rsi_min": 35,
+    "rsi_max": 70,
+    "pullback_pct": 0.3
+  },
+  "filters": {
+    "trend_required": true,
+    "ema_slope_min": 0.002,
+    "atr_min": 0.0002,
+    "atr_max": 0.02
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 1.5,
+    "tp_r": 3.0,
+    "time_stop": 120
+  }
+}

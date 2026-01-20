@@ -18,6 +18,7 @@ import requests
 BASE_DIR = os.path.dirname(__file__)
 CONTEXT_FILE = os.path.join(BASE_DIR, "intraday_context.json")
 SWING_BIAS_FILE = os.path.join(BASE_DIR, "swing_bias.json")
+STRATEGIES_DIR = os.path.join(BASE_DIR, "strategies_day")
 
 ENTRY_TF = "5m"
 FILTER_TF = "15m"
@@ -35,35 +36,44 @@ HEADERS = {
 }
 
 # =====================================================
-# STRATÉGIES DE L’ARÈNE (FIGÉES)
+# STRATEGY LOADING FROM JSON FILES
 # =====================================================
 
-STRATEGIES = [
-    {
-        "id": "DAY_SAFE_V1",
-        "max_dist": 0.5,
-        "rsi_long_max": 65,
-        "rsi_short_min": 35,
-        "session_start": dtime(8, 0),
-        "session_end": dtime(18, 0),
-    },
-    {
-        "id": "DAY_BAL_V1",
-        "max_dist": 0.8,
-        "rsi_long_max": 70,
-        "rsi_short_min": 30,
-        "session_start": dtime(7, 0),
-        "session_end": dtime(20, 0),
-    },
-    {
-        "id": "DAY_AGG_V1",
-        "max_dist": 1.2,
-        "rsi_long_max": 75,
-        "rsi_short_min": 25,
-        "session_start": dtime(6, 0),
-        "session_end": dtime(22, 0),
-    },
-]
+def load_strategies_from_dir(strategies_dir: str) -> List[Dict[str, Any]]:
+    """
+    Load all strategy JSON files from the strategies_day directory.
+    Skips malformed JSON files and logs errors.
+    Returns list of loaded strategies.
+    """
+    strategies = []
+    
+    if not os.path.exists(strategies_dir):
+        print(f"[WARN] Strategies directory not found: {strategies_dir}")
+        return strategies
+    
+    json_files = sorted([f for f in os.listdir(strategies_dir) if f.endswith('.json')])
+    
+    for filename in json_files:
+        filepath = os.path.join(strategies_dir, filename)
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                strategy = json.load(f)
+                
+            # Validate required fields
+            if "strategy_key" not in strategy:
+                print(f"[WARN] Skipping {filename}: missing 'strategy_key' field")
+                continue
+                
+            strategies.append(strategy)
+            print(f"[INFO] Loaded strategy: {strategy['strategy_key']} from {filename}")
+            
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] Failed to parse {filename}: {e}")
+        except Exception as e:
+            print(f"[ERROR] Failed to load {filename}: {e}")
+    
+    print(f"[INFO] Successfully loaded {len(strategies)} strategies from {strategies_dir}")
+    return strategies
 
 # =====================================================
 # UTILS
@@ -108,9 +118,21 @@ def post_diagnostics_api(payload: List[Dict[str, Any]]):
 # =====================================================
 
 def run_strategy(strategy: Dict[str, Any], context: Dict[str, Any], swing_bias: Dict[str, str], run_id: str):
+    """
+    Run simplified diagnostic checks for a strategy.
+    
+    NOTE: This is a simplified scanner that performs basic validation checks.
+    The full strategy parameters from JSON (entry.ema_fast, entry.ema_slow, 
+    filters.atr_min, etc.) are loaded and available for future implementation
+    of complete strategy logic. Currently, the scanner uses simplified checks
+    compatible with both old and new strategy formats.
+    """
     diagnostics = []
     assets = context.get("assets", {})
     now = utc_now()
+
+    # Extract strategy ID (support both old 'id' and new 'strategy_key' fields)
+    strategy_id = strategy.get("strategy_key", strategy.get("id", "UNKNOWN"))
 
     for symbol, asset in assets.items():
         reasons = []
@@ -138,9 +160,11 @@ def run_strategy(strategy: Dict[str, Any], context: Dict[str, Any], swing_bias: 
         if not checks["entry_5m"]["passed"]:
             reasons.append("ENTRY_5M")
 
+        # Handle both old and new strategy formats
+        max_dist = strategy.get("max_dist", 1.0)
         ema = tf5.get("ema200") if tf5 else None
         price = tf5.get("last_close") if tf5 else None
-        dist_ok = bool(ema and price and dist_pct(price, ema) <= strategy["max_dist"])
+        dist_ok = bool(ema and price and dist_pct(price, ema) <= max_dist)
         checks["ema_distance"] = {
             "passed": dist_ok,
             "value": None if not ema or not price else f"{dist_pct(price, ema):.2f}%",
@@ -148,18 +172,25 @@ def run_strategy(strategy: Dict[str, Any], context: Dict[str, Any], swing_bias: 
         if not dist_ok:
             reasons.append("EMA_DISTANCE")
 
+        # Handle RSI checks for both old and new formats
         rsi = tf5.get("rsi_14") if tf5 else None
+        rsi_long_max = strategy.get("rsi_long_max", 70)
+        rsi_short_min = strategy.get("rsi_short_min", 30)
+        
         rsi_ok = bool(
             rsi is not None and (
-                (bias == "LONG" and rsi <= strategy["rsi_long_max"]) or
-                (bias == "SHORT" and rsi >= strategy["rsi_short_min"])
+                (bias == "LONG" and rsi <= rsi_long_max) or
+                (bias == "SHORT" and rsi >= rsi_short_min)
             )
         )
         checks["rsi"] = {"passed": rsi_ok, "value": rsi}
         if not rsi_ok:
             reasons.append("RSI")
 
-        sess_ok = in_session(now, strategy["session_start"], strategy["session_end"])
+        # Handle session checks for old format (optional for new format)
+        session_start = strategy.get("session_start", dtime(0, 0))
+        session_end = strategy.get("session_end", dtime(23, 59))
+        sess_ok = in_session(now, session_start, session_end)
         checks["session"] = {"passed": sess_ok, "value": now.time().isoformat()}
         if not sess_ok:
             reasons.append("SESSION")
@@ -168,7 +199,7 @@ def run_strategy(strategy: Dict[str, Any], context: Dict[str, Any], swing_bias: 
 
         diagnostics.append({
             "run_id": run_id,
-            "strategy_id": strategy["id"],
+            "strategy_id": strategy_id,
             "coingecko_id": asset.get("coingecko_id"),
             "symbol": symbol,
             "final_decision": "ACCEPTED" if accepted else "REJECTED",
@@ -195,15 +226,22 @@ def main():
     context = load_json(CONTEXT_FILE)
     swing = load_json(SWING_BIAS_FILE).get("bias", {})
 
+    # Load strategies dynamically from JSON files
+    strategies = load_strategies_from_dir(STRATEGIES_DIR)
+    
+    if not strategies:
+        print("[WARN] No strategies loaded. Exiting.")
+        return
+
     all_diagnostics = []
 
-    for strat in STRATEGIES:
+    for strat in strategies:
         diags = run_strategy(strat, context, swing, run_id)
         all_diagnostics.extend(diags)
 
     post_diagnostics_api(all_diagnostics)
 
-    print(f"[DAY][ARENA] run={run_id} strategies={len(STRATEGIES)} duration_ms={int((time.time()-t0)*1000)}")
+    print(f"[DAY][ARENA] run={run_id} strategies={len(strategies)} duration_ms={int((time.time()-t0)*1000)}")
 
 if __name__ == "__main__":
     main()

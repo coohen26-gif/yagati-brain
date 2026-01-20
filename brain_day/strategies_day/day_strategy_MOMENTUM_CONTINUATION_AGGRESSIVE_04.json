@@ -1,0 +1,26 @@
+{
+  "strategy_key": "MOMENTUM_CONTINUATION_AGGRESSIVE_04",
+  "trading_horizon": "DAY",
+  "strategy_family": "MOMENTUM_CONTINUATION",
+  "risk_level": "AGGRESSIVE",
+  "entry": {
+    "ema_fast": 20,
+    "ema_slow": 50,
+    "price_above_ema_slow": true,
+    "rsi_min": 45,
+    "rsi_max": 80,
+    "pullback_pct": 0.1
+  },
+  "filters": {
+    "trend_required": true,
+    "ema_slope_min": 0.004,
+    "atr_min": 0.0003,
+    "atr_max": 0.025
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 1.0,
+    "tp_r": 5.0,
+    "time_stop": 90
+  }
+}

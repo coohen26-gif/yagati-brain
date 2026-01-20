@@ -1,0 +1,26 @@
+{
+  "strategy_key": "RANGE_MEAN_REVERSION_BALANCED_04",
+  "trading_horizon": "DAY",
+  "strategy_family": "RANGE_MEAN_REVERSION",
+  "risk_level": "BALANCED",
+  "entry": {
+    "ema_fast": 12,
+    "ema_slow": 100,
+    "price_above_ema_slow": false,
+    "rsi_min": 25,
+    "rsi_max": 75,
+    "pullback_pct": 2.0
+  },
+  "filters": {
+    "trend_required": false,
+    "ema_slope_min": 0.0001,
+    "atr_min": 0.0002,
+    "atr_max": 0.012
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 2.5,
+    "tp_r": 2.0,
+    "time_stop": 240
+  }
+}

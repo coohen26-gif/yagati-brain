@@ -1,0 +1,26 @@
+{
+  "strategy_key": "VOLATILITY_BREAKOUT_BALANCED_05",
+  "trading_horizon": "DAY",
+  "strategy_family": "VOLATILITY_BREAKOUT",
+  "risk_level": "BALANCED",
+  "entry": {
+    "ema_fast": 34,
+    "ema_slow": 200,
+    "price_above_ema_slow": true,
+    "rsi_min": 40,
+    "rsi_max": 70,
+    "pullback_pct": 0.4
+  },
+  "filters": {
+    "trend_required": true,
+    "ema_slope_min": 0.0015,
+    "atr_min": 0.005,
+    "atr_max": 0.08
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 2.0,
+    "tp_r": 4.0,
+    "time_stop": 90
+  }
+}
