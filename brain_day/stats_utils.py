@@ -69,7 +69,7 @@ def win_loss_counts(trades: List[Any]) -> Dict[str, int]:
 
 def win_rate(trades: List[Any]) -> float:
     """
-    Calculate win rate as a percentage.
+    Calculate win rate as a fraction.
     
     Args:
         trades: List of trade objects (dict or object with attributes)

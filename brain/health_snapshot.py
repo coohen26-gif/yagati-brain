@@ -44,14 +44,14 @@ def compute_health_snapshot(trades: List[Any]) -> Dict[str, Any]:
     w_rate = win_rate(trades)
     mean_rr = avg_rr(trades)
 
-    wins = int(wl.get("wins", 0)) if isinstance(wl, dict) else 0
-    losses = int(wl.get("losses", 0)) if isinstance(wl, dict) else 0
+    wins = wl.get("wins", 0)
+    losses = wl.get("losses", 0)
 
     return {
-        "total_trades": int(total),
+        "total_trades": total,
         "wins": wins,
         "losses": losses,
         "win_rate": float(w_rate),
         "avg_rr": float(mean_rr),
-        "has_activity": bool(int(total) > 0),
+        "has_activity": total > 0,
     }
