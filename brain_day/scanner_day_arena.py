@@ -1,1 +1,273 @@
-# -*- coding: utf-8 -*-\nimport os\nimport json\nimport time\nimport uuid\nfrom datetime import datetime, timezone, time as dtime\nfrom typing import Dict, Any, List\nimport requests\n\n# =====================================================\n# SCANNER DAY — ARENA\n# SAFE / BALANCED / AGGRESSIVE\n# - Même données\n# - Règles différentes\n# - Aucune exécution de trade\n# - Écrit diagnostics explicites\n# =====================================================\n\nBASE_DIR = os.path.dirname(__file__)\nCONTEXT_FILE = os.path.join(BASE_DIR, "intraday_context.json")\nSWING_BIAS_FILE = os.path.join(BASE_DIR, "swing_bias.json")\nSTRATEGIES_DIR = os.path.join(BASE_DIR, "strategies_day")\n\nENTRY_TF = "5m"\nFILTER_TF = "15m"\n\n# Supabase configuration (may be absent)\nSUPABASE_URL = os.getenv("SUPABASE_URL")\nSERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")\n\n# Feature flag: DISABLE_SUPABASE=1|true|yes will disable Supabase exports.\n_disable_flag = os.getenv("DISABLE_SUPABASE", "").strip().lower()\nDISABLE_SUPABASE = _disable_flag in ("1", "true", "yes")\n\nHEADERS = {\n    "apikey": SERVICE_ROLE_KEY,\n    "Authorization": f"Bearer {SERVICE_ROLE_KEY}" if SERVICE_ROLE_KEY else None,\n    "Content-Type": "application/json",\n}\n\nif DISABLE_SUPABASE:\n    print("[WARN] Supabase export disabled via DISABLE_SUPABASE environment variable.")\nelif not SUPABASE_URL or not SERVICE_ROLE_KEY:\n    # Do NOT raise: scanner must continue even if Supabase is not configured.\n    print("[WARN] Supabase not configured (SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing). Exports will be skipped.")\nelse:\n    print("[INFO] Supabase configured; diagnostics will be exported when available.")\n\n# =====================================================\n# STRATEGY LOADING FROM JSON FILES\n# =====================================================\n\ndef load_strategies_from_dir(strategies_dir: str) -> List[Dict[str, Any]]:\n    """\n    Load all strategy JSON files from the strategies_day directory.\n    Skips malformed JSON files and logs errors.\n    Returns list of loaded strategies.\n    """\n    strategies = []\n    \n    if not os.path.exists(strategies_dir):\n        print(f"[WARN] Strategies directory not found: {strategies_dir}")\n        return strategies\n    \n    json_files = sorted([f for f in os.listdir(strategies_dir) if f.endswith('.json')])\n    \n    for filename in json_files:\n        filepath = os.path.join(strategies_dir, filename)\n        try:\n            with open(filepath, 'r', encoding='utf-8') as f:\n                strategy = json.load(f)\n                \n            # Validate required fields\n            if "strategy_key" not in strategy:\n                print(f"[WARN] Skipping {filename}: missing 'strategy_key' field")\n                continue\n                \n            strategies.append(strategy)\n            print(f"[INFO] Loaded strategy: {strategy['strategy_key']} from {filename}")\n            \n        except json.JSONDecodeError as e:\n            print(f"[ERROR] Failed to parse {filename}: {e}")\n        except Exception as e:\n            print(f"[ERROR] Failed to load {filename}: {e}")\n    \n    print(f"[INFO] Successfully loaded {len(strategies)} strategies from {strategies_dir}")\n    return strategies\n\n# =====================================================\n# UTILS\n# =====================================================\n\ndef utc_now():\n    return datetime.now(timezone.utc)\n\ndef utc_now_iso():\n    return utc_now().isoformat()\n\ndef load_json(path: str) -> Dict[str, Any]:\n    if not os.path.exists(path):\n        return {}\n    with open(path, "r", encoding="utf-8") as f:\n        return json.load(f)\n\ndef aligned(direction: str, pvs: str) -> bool:\n    return (direction == "LONG" and pvs == "above") or (direction == "SHORT" and pvs == "below")\n\ndef in_session(now_utc: datetime, start: dtime, end: dtime) -> bool:\n    t = now_utc.time()\n    return start <= t <= end\n\ndef dist_pct(price: float, ema: float) -> float:\n    return abs((price - ema) / ema) * 100.0\n\n# =====================================================\n# API WRITE\n# =====================================================\n\ndef post_diagnostics_api(payload: List[Dict[str, Any]]):\n    """\n    Post diagnostics payload to Supabase if configured and enabled.\n    This function is intentionally non-blocking: it logs warnings on failures\n    and returns without raising, so the scanner continues to operate.\n    """\n    if not payload:\n        return\n\n    # If feature-flag disabled, skip with a warning\n    if DISABLE_SUPABASE:\n        print("[WARN] Supabase export disabled; skipping diagnostics upload.")\n        return\n\n    # If Supabase not configured, skip (do not raise)\n    if not SUPABASE_URL or not SERVICE_ROLE_KEY:\n        print("[WARN] Supabase not configured; skipping diagnostics upload.")\n        return\n\n    url = f"{SUPABASE_URL}/rest/v1/day_scanner_diagnostics"\n    try:\n        r = requests.post(url, headers=HEADERS, json=payload, timeout=30)\n        if not r.ok:\n            # Log details but do not raise\n            print(f"[WARN] Diagnostics insert failed: status={{r.status_code}} body={{r.text}}")\n        else:\n            print(f"[INFO] Diagnostics uploaded: count={{len(payload)}}")\n    except requests.RequestException as e:\n        # Network/timeout/etc. — log and continue\n        print(f"[WARN] Supabase request failed: {{e}}")\n\n# =====================================================\n# CORE LOGIC\n# =====================================================\n\ndef run_strategy(strategy: Dict[str, Any], context: Dict[str, Any], swing_bias: Dict[str, str], run_id: str):\n    """\n    Run simplified diagnostic checks for a strategy.\n    \n    NOTE: This is a simplified scanner that performs basic validation checks.\n    The full strategy parameters from JSON (entry.ema_fast, entry.ema_slow, \n    filters.atr_min, etc.) are loaded and available for future implementation\n    of complete strategy logic. Currently, the scanner uses simplified checks\n    compatible with both old and new strategy formats.\n    """\n    diagnostics = []\n    assets = context.get("assets", {})\n    now = utc_now()\n\n    # Extract strategy ID (support both old 'id' and new 'strategy_key' fields)\n    strategy_id = strategy.get("strategy_key", strategy.get("id", "UNKNOWN"))\n\n    for symbol, asset in assets.items():\n        reasons = []\n        checks = {}\n\n        bias = swing_bias.get(symbol, "NONE")\n        checks["swing_bias"] = {"passed": bias in ("LONG", "SHORT"), "value": bias}\n        if bias not in ("LONG", "SHORT"):\n            reasons.append("SWING_BIAS")\n\n        tf5 = asset.get("timeframes", {}).get(ENTRY_TF)\n        tf15 = asset.get("timeframes", {}).get(FILTER_TF)\n\n        checks["filter_15m"] = {\n            "passed": bool(tf15 and aligned(bias, tf15.get("price_vs_ema200"))),\n            "value": tf15.get("price_vs_ema200") if tf15 else None,\n        }\n        if not checks["filter_15m"]["passed"]:\n            reasons.append("FILTER_15M")\n\n        checks["entry_5m"] = {\n            "passed": bool(tf5 and aligned(bias, tf5.get("price_vs_ema200"))),\n            "value": tf5.get("price_vs_ema200") if tf5 else None,\n        }\n        if not checks["entry_5m"]["passed"]:\n            reasons.append("ENTRY_5M")\n\n        # Handle both old and new strategy formats\n        max_dist = strategy.get("max_dist", 1.0)\n        ema = tf5.get("ema200") if tf5 else None\n        price = tf5.get("last_close") if tf5 else None\n        dist_ok = bool(ema and price and dist_pct(price, ema) <= max_dist)\n        checks["ema_distance"] = {\n            "passed": dist_ok,\n            "value": None if not ema or not price else f"{dist_pct(price, ema):.2f}%",\n        }\n        if not dist_ok:\n            reasons.append("EMA_DISTANCE")\n\n        # Handle RSI checks for both old and new formats\n        rsi = tf5.get("rsi_14") if tf5 else None\n        rsi_long_max = strategy.get("rsi_long_max", 70)\n        rsi_short_min = strategy.get("rsi_short_min", 30)\n        \n        rsi_ok = bool(\n            rsi is not None and (\n                (bias == "LONG" and rsi <= rsi_long_max) or\n                (bias == "SHORT" and rsi >= rsi_short_min)\n            )\n        )\n        checks["rsi"] = {"passed": rsi_ok, "value": rsi}\n        if not rsi_ok:\n            reasons.append("RSI")\n\n        # Handle session checks for old format (optional for new format)\n        session_start = strategy.get("session_start", dtime(0, 0))\n        session_end = strategy.get("session_end", dtime(23, 59))\n        sess_ok = in_session(now, session_start, session_end)\n        checks["session"] = {"passed": sess_ok, "value": now.time().isoformat()}\n        if not sess_ok:\n            reasons.append("SESSION")\n\n        accepted = len(reasons) == 0\n\n        diagnostics.append({\n            "run_id": run_id,\n            "strategy_id": strategy_id,\n            "coingecko_id": asset.get("coingecko_id"),\n            "symbol": symbol,\n            "final_decision": "ACCEPTED" if accepted else "REJECTED",\n            "rejection_reasons": reasons,\n            "swing_bias_check": checks["swing_bias"],\n            "filter_15m_check": checks["filter_15m"],\n            "entry_5m_check": checks["entry_5m"],\n            "ema_distance_check": checks["ema_distance"],\n            "rsi_check": checks["rsi"],\n            "session_check": checks["session"],\n            "created_at": utc_now_iso(),\n        })\n\n    return diagnostics\n\n# =====================================================\n# MAIN\n# =====================================================\n\ndef main():\n    t0 = time.time()\n    run_id = str(uuid.uuid4())\n\n    context = load_json(CONTEXT_FILE)\n    swing = load_json(SWING_BIAS_FILE).get("bias", {})\n\n    # Load strategies dynamically from JSON files\n    strategies = load_strategies_from_dir(STRATEGIES_DIR)\n    \n    if not strategies:\n        print("[WARN] No strategies loaded. Exiting.")\n        return\n\n    all_diagnostics = []\n\n    for strat in strategies:\n        diags = run_strategy(strat, context, swing, run_id)\n        all_diagnostics.extend(diags)\n\n    # Export diagnostics to Supabase if configured and enabled (non-blocking)\n    post_diagnostics_api(all_diagnostics)\n\n    print(f"[DAY][ARENA] run={{run_id}} strategies={{len(strategies)}} duration_ms={{int((time.time()-t0)*1000)}}")\n\nif __name__ == "__main__":\n    main()
+# -*- coding: utf-8 -*-
+import os
+import json
+import time
+import uuid
+from datetime import datetime, timezone, time as dtime
+from typing import Dict, Any, List
+import requests
+
+# =====================================================
+# SCANNER DAY — ARENA
+# SAFE / BALANCED / AGGRESSIVE
+# - Même données
+# - Règles différentes
+# - Aucune exécution de trade
+# - Écrit diagnostics explicites
+# =====================================================
+
+BASE_DIR = os.path.dirname(__file__)
+CONTEXT_FILE = os.path.join(BASE_DIR, "intraday_context.json")
+SWING_BIAS_FILE = os.path.join(BASE_DIR, "swing_bias.json")
+STRATEGIES_DIR = os.path.join(BASE_DIR, "strategies_day")
+
+ENTRY_TF = "5m"
+FILTER_TF = "15m"
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+# Feature flag: DISABLE_SUPABASE=1|true|yes will disable Supabase exports.
+_disable_flag = os.getenv("DISABLE_SUPABASE", "").strip().lower()
+DISABLE_SUPABASE = _disable_flag in ("1", "true", "yes")
+
+if DISABLE_SUPABASE:
+    print("[WARN] Supabase export disabled via DISABLE_SUPABASE environment variable.")
+elif not SUPABASE_URL or not SERVICE_ROLE_KEY:
+    # Do NOT raise: scanner must continue even if Supabase is not configured.
+    print("[WARN] Supabase not configured (SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing). Exports will be skipped.")
+else:
+    print("[INFO] Supabase configured; diagnostics will be exported.")
+
+HEADERS = {
+    "apikey": SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SERVICE_ROLE_KEY}" if SERVICE_ROLE_KEY else None,
+    "Content-Type": "application/json",
+}
+
+# =====================================================
+# STRATEGY LOADING FROM JSON FILES
+# =====================================================
+
+def load_strategies_from_dir(strategies_dir: str) -> List[Dict[str, Any]]:
+    """Load all strategy JSON files from the strategies_day directory.
+    Skips malformed JSON files and logs errors.
+    Returns list of loaded strategies.
+    """
+    strategies = []
+    
+    if not os.path.exists(strategies_dir):
+        print(f"[WARN] Strategies directory not found: {strategies_dir}")
+        return strategies
+    
+    json_files = sorted([f for f in os.listdir(strategies_dir) if f.endswith('.json')])
+    
+    for filename in json_files:
+        filepath = os.path.join(strategies_dir, filename)
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                strategy = json.load(f)
+                
+            # Validate required fields
+            if "strategy_key" not in strategy:
+                print(f"[WARN] Skipping {filename}: missing 'strategy_key' field")
+                continue
+                
+            strategies.append(strategy)
+            print(f"[INFO] Loaded strategy: {strategy['strategy_key']} from {filename}")
+            
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] Failed to parse {filename}: {e}")
+        except Exception as e:
+            print(f"[ERROR] Failed to load {filename}: {e}")
+    
+    print(f"[INFO] Successfully loaded {len(strategies)} strategies from {strategies_dir}")
+    return strategies
+
+# =====================================================
+# UTILS
+# =====================================================
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+def utc_now_iso():
+    return utc_now().isoformat()
+
+def load_json(path: str) -> Dict[str, Any]:
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def aligned(direction: str, pvs: str) -> bool:
+    return (direction == "LONG" and pvs == "above") or (direction == "SHORT" and pvs == "below")
+
+def in_session(now_utc: datetime, start: dtime, end: dtime) -> bool:
+    t = now_utc.time()
+    return start <= t <= end
+
+def dist_pct(price: float, ema: float) -> float:
+    return abs((price - ema) / ema) * 100.0
+
+# =====================================================
+# API WRITE
+# =====================================================
+
+def post_diagnostics_api(payload: List[Dict[str, Any]]):
+    """Post diagnostics payload to Supabase if configured and enabled.
+    Non-blocking: logs warnings on failures and returns without raising.
+    """
+    if not payload:
+        return
+
+    if DISABLE_SUPABASE:
+        print("[WARN] Supabase export disabled; skipping diagnostics upload.")
+        return
+
+    if not SUPABASE_URL or not SERVICE_ROLE_KEY:
+        print("[WARN] Supabase not configured; skipping diagnostics upload.")
+        return
+
+    url = f"{SUPABASE_URL}/rest/v1/day_scanner_diagnostics"
+    try:
+        r = requests.post(url, headers=HEADERS, json=payload, timeout=30)
+        if not r.ok:
+            print(f"[WARN] Diagnostics insert failed: {r.status_code} {r.text}")
+        else:
+            print(f"[INFO] Diagnostics uploaded: count={{len(payload)}}")
+    except requests.RequestException as e:
+        print(f"[WARN] Supabase request failed: {e}")
+
+# =====================================================
+# CORE LOGIC
+# =====================================================
+
+def run_strategy(strategy: Dict[str, Any], context: Dict[str, Any], swing_bias: Dict[str, str], run_id: str):
+    """Run simplified diagnostic checks for a strategy.
+    
+    NOTE: This is a simplified scanner that performs basic validation checks.
+    The full strategy parameters from JSON (entry.ema_fast, entry.ema_slow, 
+    filters.atr_min, etc.) are loaded and available for future implementation
+    of complete strategy logic. Currently, the scanner uses simplified checks
+    compatible with both old and new strategy formats.
+    """
+    diagnostics = []
+    assets = context.get("assets", {})
+    now = utc_now()
+
+    # Extract strategy ID (support both old 'id' and new 'strategy_key' fields)
+    strategy_id = strategy.get("strategy_key", strategy.get("id", "UNKNOWN"))
+
+    for symbol, asset in assets.items():
+        reasons = []
+        checks = {}
+
+        bias = swing_bias.get(symbol, "NONE")
+        checks["swing_bias"] = {"passed": bias in ("LONG", "SHORT"), "value": bias}
+        if bias not in ("LONG", "SHORT"):
+            reasons.append("SWING_BIAS")
+
+        tf5 = asset.get("timeframes", {}).get(ENTRY_TF)
+        tf15 = asset.get("timeframes", {}).get(FILTER_TF)
+
+        checks["filter_15m"] = {
+            "passed": bool(tf15 and aligned(bias, tf15.get("price_vs_ema200"))),
+            "value": tf15.get("price_vs_ema200") if tf15 else None,
+        }
+        if not checks["filter_15m"]["passed"]:
+            reasons.append("FILTER_15M")
+
+        checks["entry_5m"] = {
+            "passed": bool(tf5 and aligned(bias, tf5.get("price_vs_ema200"))),
+            "value": tf5.get("price_vs_ema200") if tf5 else None,
+        }
+        if not checks["entry_5m"]["passed"]:
+            reasons.append("ENTRY_5M")
+
+        # Handle both old and new strategy formats
+        max_dist = strategy.get("max_dist", 1.0)
+        ema = tf5.get("ema200") if tf5 else None
+        price = tf5.get("last_close") if tf5 else None
+        dist_ok = bool(ema and price and dist_pct(price, ema) <= max_dist)
+        checks["ema_distance"] = {
+            "passed": dist_ok,
+            "value": None if not ema or not price else f"{dist_pct(price, ema):.2f}%",
+        }
+        if not dist_ok:
+            reasons.append("EMA_DISTANCE")
+
+        # Handle RSI checks for both old and new formats
+        rsi = tf5.get("rsi_14") if tf5 else None
+        rsi_long_max = strategy.get("rsi_long_max", 70)
+        rsi_short_min = strategy.get("rsi_short_min", 30)
+        
+        rsi_ok = bool(
+            rsi is not None and (
+                (bias == "LONG" and rsi <= rsi_long_max) or
+                (bias == "SHORT" and rsi >= rsi_short_min)
+            )
+        )
+        checks["rsi"] = {"passed": rsi_ok, "value": rsi}
+        if not rsi_ok:
+            reasons.append("RSI")
+
+        # Handle session checks for old format (optional for new format)
+        session_start = strategy.get("session_start", dtime(0, 0))
+        session_end = strategy.get("session_end", dtime(23, 59))
+        sess_ok = in_session(now, session_start, session_end)
+        checks["session"] = {"passed": sess_ok, "value": now.time().isoformat()}
+        if not sess_ok:
+            reasons.append("SESSION")
+
+        accepted = len(reasons) == 0
+
+        diagnostics.append({
+            "run_id": run_id,
+            "strategy_id": strategy_id,
+            "coingecko_id": asset.get("coingecko_id"),
+            "symbol": symbol,
+            "final_decision": "ACCEPTED" if accepted else "REJECTED",
+            "rejection_reasons": reasons,
+            "swing_bias_check": checks["swing_bias"],
+            "filter_15m_check": checks["filter_15m"],
+            "entry_5m_check": checks["entry_5m"],
+            "ema_distance_check": checks["ema_distance"],
+            "rsi_check": checks["rsi"],
+            "session_check": checks["session"],
+            "created_at": utc_now_iso(),
+        })
+
+    return diagnostics
+
+# =====================================================
+# MAIN
+# =====================================================
+
+def main():
+    t0 = time.time()
+    run_id = str(uuid.uuid4())
+
+    context = load_json(CONTEXT_FILE)
+    swing = load_json(SWING_BIAS_FILE).get("bias", {})
+
+    # Load strategies dynamically from JSON files
+    strategies = load_strategies_from_dir(STRATEGIES_DIR)
+    
+    if not strategies:
+        print("[WARN] No strategies loaded. Exiting.")
+        return
+
+    all_diagnostics = []
+
+    for strat in strategies:
+        diags = run_strategy(strat, context, swing, run_id)
+        all_diagnostics.extend(diags)
+
+    # Export diagnostics to Supabase if configured and enabled (non-blocking)
+    post_diagnostics_api(all_diagnostics)
+
+    print(f"[DAY][ARENA] run={{run_id}} strategies={{len(strategies)}} duration_ms={{int((time.time()-t0)*1000)}}")
+
+if __name__ == "__main__":
+    main()
