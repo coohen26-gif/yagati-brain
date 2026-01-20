@@ -8,11 +8,28 @@ This script:
    - brain/ core_strategy_*.json files (SWING horizon)
 2. Extracts metadata (strategy_key, horizon, arena, family, risk_level)
 3. Upserts records into Supabase 'strategies' table
+
+Usage:
+    # Publish strategies to Supabase
+    python brain/publish_strategies_from_json.py
+    
+    # Dry run (show what would be published without actually publishing)
+    python brain/publish_strategies_from_json.py --dry-run
+
+Environment Variables Required:
+    SUPABASE_URL: Supabase project URL
+    SUPABASE_SERVICE_ROLE_KEY: Supabase service role key for authentication
+
+Notes:
+    - The problem statement mentions brain/swing_alpha/ but this directory doesn't exist
+    - Instead, the script reads core_strategy_*.json files from brain/ directory
+    - SWING strategies are inferred to have arena='SWING_ALPHA' as per requirements
 """
 
 import os
 import json
 import glob
+import sys
 import requests
 from pathlib import Path
 
@@ -145,29 +162,46 @@ def load_swing_strategies():
     return strategies
 
 
-def upsert_strategies(strategies):
+def upsert_strategies(strategies, dry_run=False):
     """
     Upsert strategy records to Supabase 'strategies' table.
     
     Args:
         strategies (list): List of strategy records to upsert
+        dry_run (bool): If True, only show what would be published without actually upserting
     """
     if not strategies:
         print("⚠️  No strategies to upsert")
         return
     
+    if dry_run:
+        print("\n🔍 DRY RUN - Showing what would be published:")
+        print(json.dumps(strategies[:3], indent=2))
+        if len(strategies) > 3:
+            print(f"... and {len(strategies) - 3} more strategies")
+        print(f"\n✅ Dry run complete - {len(strategies)} strategies ready to publish")
+        return
+    
     url = f"{SUPABASE_URL}/rest/v1/strategies"
     
-    # Use merge-duplicates to upsert based on primary key
-    r = requests.post(
-        url,
-        headers={**HEADERS, "Prefer": "resolution=merge-duplicates"},
-        json=strategies,
-        timeout=20,
-    )
-    
-    r.raise_for_status()
-    print(f"✅ Successfully upserted {len(strategies)} strategies")
+    try:
+        # Use merge-duplicates to upsert based on primary key
+        r = requests.post(
+            url,
+            headers={**HEADERS, "Prefer": "resolution=merge-duplicates"},
+            json=strategies,
+            timeout=20,
+        )
+        
+        r.raise_for_status()
+        print(f"✅ Successfully upserted {len(strategies)} strategies")
+        
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error upserting strategies: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"Response status: {e.response.status_code}")
+            print(f"Response body: {e.response.text}")
+        raise
 
 
 # =============================
@@ -176,6 +210,12 @@ def upsert_strategies(strategies):
 
 def main():
     """Main execution function."""
+    # Check for dry-run flag
+    dry_run = "--dry-run" in sys.argv
+    
+    if dry_run:
+        print("🔍 Running in DRY-RUN mode (no data will be published)\n")
+    
     print("📡 Loading and publishing strategies to Supabase...")
     
     # Load strategies from both sources
@@ -199,10 +239,15 @@ def main():
     print(f"  - SWING: {len(swing_strategies)}")
     
     # Upsert to Supabase
-    print(f"\n🚀 Publishing to Supabase...")
-    upsert_strategies(all_strategies)
+    if dry_run:
+        print(f"\n🔍 Showing what would be published...")
+    else:
+        print(f"\n🚀 Publishing to Supabase...")
     
-    print("\n✅ Strategy synchronization complete!")
+    upsert_strategies(all_strategies, dry_run=dry_run)
+    
+    if not dry_run:
+        print("\n✅ Strategy synchronization complete!")
 
 
 if __name__ == "__main__":
