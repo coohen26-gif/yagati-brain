@@ -1,0 +1,26 @@
+{
+  "strategy_key": "RANGE_MEAN_REVERSION_AGGRESSIVE_06",
+  "trading_horizon": "DAY",
+  "strategy_family": "RANGE_MEAN_REVERSION",
+  "risk_level": "AGGRESSIVE",
+  "entry": {
+    "ema_fast": 20,
+    "ema_slow": 50,
+    "price_above_ema_slow": false,
+    "rsi_min": 20,
+    "rsi_max": 80,
+    "pullback_pct": 1.0
+  },
+  "filters": {
+    "trend_required": false,
+    "ema_slope_min": 0.0002,
+    "atr_min": 0.0002,
+    "atr_max": 0.012
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 2.0,
+    "tp_r": 2.5,
+    "time_stop": 180
+  }
+}

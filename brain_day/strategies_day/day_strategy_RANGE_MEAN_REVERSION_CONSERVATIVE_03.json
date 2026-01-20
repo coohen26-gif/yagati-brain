@@ -1,0 +1,26 @@
+{
+  "strategy_key": "RANGE_MEAN_REVERSION_CONSERVATIVE_03",
+  "trading_horizon": "DAY",
+  "strategy_family": "RANGE_MEAN_REVERSION",
+  "risk_level": "CONSERVATIVE",
+  "entry": {
+    "ema_fast": 8,
+    "ema_slow": 150,
+    "price_above_ema_slow": false,
+    "rsi_min": 30,
+    "rsi_max": 70,
+    "pullback_pct": 2.0
+  },
+  "filters": {
+    "trend_required": false,
+    "ema_slope_min": 0.0,
+    "atr_min": 0.0001,
+    "atr_max": 0.008
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 3.0,
+    "tp_r": 1.5,
+    "time_stop": 300
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "strategy_key": "VOLATILITY_BREAKOUT_AGGRESSIVE_06",
+  "trading_horizon": "DAY",
+  "strategy_family": "VOLATILITY_BREAKOUT",
+  "risk_level": "AGGRESSIVE",
+  "entry": {
+    "ema_fast": 34,
+    "ema_slow": 100,
+    "price_above_ema_slow": true,
+    "rsi_min": 35,
+    "rsi_max": 75,
+    "pullback_pct": 0.2
+  },
+  "filters": {
+    "trend_required": true,
+    "ema_slope_min": 0.002,
+    "atr_min": 0.005,
+    "atr_max": 0.08
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 1.5,
+    "tp_r": 5.0,
+    "time_stop": 60
+  }
+}

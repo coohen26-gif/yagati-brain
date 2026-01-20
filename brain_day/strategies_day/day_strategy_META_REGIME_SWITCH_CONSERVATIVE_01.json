@@ -1,0 +1,26 @@
+{
+  "strategy_key": "META_REGIME_SWITCH_CONSERVATIVE_01",
+  "trading_horizon": "DAY",
+  "strategy_family": "META_REGIME_SWITCH",
+  "risk_level": "CONSERVATIVE",
+  "entry": {
+    "ema_fast": 12,
+    "ema_slow": 300,
+    "price_above_ema_slow": true,
+    "rsi_min": 45,
+    "rsi_max": 60,
+    "pullback_pct": 1.0
+  },
+  "filters": {
+    "trend_required": true,
+    "ema_slope_min": 0.0005,
+    "atr_min": 0.0001,
+    "atr_max": 0.02
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 3.0,
+    "tp_r": 2.0,
+    "time_stop": 240
+  }
+}

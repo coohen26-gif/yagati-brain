@@ -1,0 +1,26 @@
+{
+  "strategy_key": "TREND_BREAKOUT_AGGRESSIVE_05",
+  "trading_horizon": "DAY",
+  "strategy_family": "TREND_BREAKOUT",
+  "risk_level": "AGGRESSIVE",
+  "entry": {
+    "ema_fast": 34,
+    "ema_slow": 100,
+    "price_above_ema_slow": true,
+    "rsi_min": 40,
+    "rsi_max": 80,
+    "pullback_pct": 0.1
+  },
+  "filters": {
+    "trend_required": true,
+    "ema_slope_min": 0.003,
+    "atr_min": 0.0003,
+    "atr_max": 0.025
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 1.0,
+    "tp_r": 4.0,
+    "time_stop": 90
+  }
+}

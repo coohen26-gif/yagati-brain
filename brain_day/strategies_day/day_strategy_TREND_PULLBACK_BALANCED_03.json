@@ -1,0 +1,26 @@
+{
+  "strategy_key": "TREND_PULLBACK_BALANCED_03",
+  "trading_horizon": "DAY",
+  "strategy_family": "TREND_PULLBACK",
+  "risk_level": "BALANCED",
+  "entry": {
+    "ema_fast": 12,
+    "ema_slow": 100,
+    "price_above_ema_slow": true,
+    "rsi_min": 35,
+    "rsi_max": 65,
+    "pullback_pct": 0.8
+  },
+  "filters": {
+    "trend_required": true,
+    "ema_slope_min": 0.001,
+    "atr_min": 0.0002,
+    "atr_max": 0.02
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 2.0,
+    "tp_r": 2.5,
+    "time_stop": 180
+  }
+}

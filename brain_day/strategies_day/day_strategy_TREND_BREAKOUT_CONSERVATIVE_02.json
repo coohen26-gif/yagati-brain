@@ -1,0 +1,26 @@
+{
+  "strategy_key": "TREND_BREAKOUT_CONSERVATIVE_02",
+  "trading_horizon": "DAY",
+  "strategy_family": "TREND_BREAKOUT",
+  "risk_level": "CONSERVATIVE",
+  "entry": {
+    "ema_fast": 12,
+    "ema_slow": 300,
+    "price_above_ema_slow": true,
+    "rsi_min": 50,
+    "rsi_max": 70,
+    "pullback_pct": 0.3
+  },
+  "filters": {
+    "trend_required": true,
+    "ema_slope_min": 0.001,
+    "atr_min": 0.0002,
+    "atr_max": 0.015
+  },
+  "exit": {
+    "sl_type": "ATR",
+    "sl_atr_mult": 2.0,
+    "tp_r": 2.5,
+    "time_stop": 180
+  }
+}
