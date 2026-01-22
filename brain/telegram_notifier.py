@@ -17,14 +17,22 @@ def send_telegram_message(message: str) -> bool:
     Returns:
         True if message was sent successfully, False otherwise
     """
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
     
     if not bot_token or not chat_id:
         print("⚠️ Telegram configuration missing (TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)")
         return False
     
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    # Basic validation of bot token format (should contain only alphanumeric, hyphens, and underscores)
+    # Telegram bot tokens typically look like: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+    if not bot_token.replace(":", "").replace("-", "").replace("_", "").isalnum():
+        print("⚠️ Invalid TELEGRAM_BOT_TOKEN format")
+        return False
+    
+    # Construct API endpoint using validated token
+    api_base = "https://api.telegram.org"
+    url = f"{api_base}/bot{bot_token}/sendMessage"
     
     payload = {
         "chat_id": chat_id,

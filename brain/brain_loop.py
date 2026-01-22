@@ -16,6 +16,11 @@ except Exception as e:
     print(f"⚠️ Error loading .env file: {e}")
 
 # Import telegram notifier
+import sys
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
 from telegram_notifier import send_telegram_message
 
 LOOP_MINUTES = 15  # fréquence du cerveau
