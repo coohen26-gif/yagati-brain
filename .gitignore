@@ -24,3 +24,10 @@ Thumbs.db
 # Project specific
 *.log
 strategy_scores_detailed.json
+
+# Local test files and backups
+test.py
+*.bak
+*.save
+*.backup
+*.broken.*
