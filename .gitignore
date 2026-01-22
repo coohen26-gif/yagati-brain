@@ -31,3 +31,17 @@ test.py
 *.save
 *.backup
 *.broken.*
+
+# Runtime data files
+data/
+last_run.txt
+brain_analysis_step1.json
+brain_strategy_decisions.json
+strategy_scores.json
+strategy_stats.json
+autopilot_*.json
+strategy_evaluation.json
+*_refusals.json
+day_signals_*.json
+intraday_context.json
+swing_bias.json
