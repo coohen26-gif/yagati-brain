@@ -130,18 +130,18 @@ def main():
     # Le régime BTC est observé mais NON bloquant pour la preuve
     regime_result = detect_regime("BTC")
     
-    # Log observation if regime is detected
-    if regime_result:
-        regime_type = regime_result.get("regime")
-        bias = regime_result.get("bias")
-        if regime_type == "TREND" and bias:
-            # Log observation for trend detection
-            observation_note = f"regime: {regime_type} ({bias})"
-            log_brain_observation("BTC", status="neutral", note=observation_note)
-        elif regime_type in ["RANGE", "TRANSITION"]:
-            # Log observation for range/transition detection
-            observation_note = f"regime: {regime_type}"
-            log_brain_observation("BTC", status="neutral", note=observation_note)
+    # Log observation based on regime detection
+    regime_type = regime_result.get("regime")
+    bias = regime_result.get("bias")
+    
+    if regime_type == "TREND":
+        # Log observation for trend detection
+        observation_note = f"regime: {regime_type} ({bias})"
+        log_brain_observation("BTC", status="neutral", note=observation_note)
+    elif regime_type in ["RANGE", "TRANSITION"]:
+        # Log observation for range/transition detection
+        observation_note = f"regime: {regime_type}"
+        log_brain_observation("BTC", status="neutral", note=observation_note)
 
     opened = []
     
