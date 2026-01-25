@@ -15,13 +15,14 @@ except ImportError:
 except Exception as e:
     print(f"⚠️ Error loading .env file: {e}")
 
-# Import telegram notifier
+# Import telegram notifier and airtable logger
 import sys
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 from telegram_notifier import send_telegram_message
+from airtable_logger import log_brain_heartbeat
 
 LOOP_MINUTES = 15  # fréquence du cerveau
 
@@ -54,6 +55,10 @@ if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
         print("⚠️ Failed to send startup notification")
 else:
     print("⚠️ Telegram not configured (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID required)")
+
+# Log canonical brain heartbeat to Airtable once at startup (YAGATI-BRAIN-001)
+print("\n🔍 Logging initial brain heartbeat to Airtable...")
+log_brain_heartbeat()
 
 while True:
     print("\n==============================")
