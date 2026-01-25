@@ -116,12 +116,15 @@ def log_brain_scan(symbol, note="market scanned"):
     """
     Log a scan event when the brain reads market data.
     
+    Uses the existing log_heartbeat() infrastructure to write to the brain_logs table.
+    Fails gracefully if Airtable is not configured, following the same pattern as log_brain_heartbeat().
+    
     Args:
         symbol (str): Market symbol being scanned (e.g., "BTCUSDT", "BTC", "GLOBAL")
         note (str): Short factual text describing the scan (default: "market scanned")
         
     Returns:
-        bool: True if successful, False otherwise
+        bool: True if successful, False otherwise (including when Airtable is not configured)
     """
     try:
         logger = AirtableLogger()
@@ -142,13 +145,16 @@ def log_brain_observation(symbol, status="weak", note="pattern detected"):
     """
     Log an observation event for weak/preliminary patterns.
     
+    Uses the existing log_heartbeat() infrastructure to write to the brain_logs table.
+    Fails gracefully if Airtable is not configured, following the same pattern as log_brain_heartbeat().
+    
     Args:
         symbol (str): Market symbol where observation was made
         status (str): Status of the observation ("weak" or "neutral")
         note (str): Short descriptive label (e.g., "RSI divergence", "EMA crossover detected")
         
     Returns:
-        bool: True if successful, False otherwise
+        bool: True if successful, False otherwise (including when Airtable is not configured)
     """
     try:
         logger = AirtableLogger()
