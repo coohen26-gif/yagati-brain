@@ -78,6 +78,8 @@ while True:
         setups = scan_all_markets()
         if setups:
             log_setups_to_airtable(setups)
+        else:
+            print("ℹ️ No setups detected (market quiet)")
     except Exception as e:
         print(f"⚠️ Market scan failed (non-blocking): {e}")
 

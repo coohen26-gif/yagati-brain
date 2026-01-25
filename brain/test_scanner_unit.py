@@ -7,13 +7,6 @@ Tests the logic without requiring external API calls.
 import sys
 import os
 
-# Simple mock functions for testing
-def mock_ema(values, period):
-    """Mock EMA function."""
-    if len(values) < period:
-        return None
-    return sum(values[-period:]) / period
-
 
 # Test data generators
 def generate_low_volatility_candles(count=50):

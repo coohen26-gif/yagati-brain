@@ -20,7 +20,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
-from market_regime import fetch_ohlc, ema, slope
+from market_regime import fetch_ohlc, ema
 
 
 # Market universe (top market cap crypto assets)
