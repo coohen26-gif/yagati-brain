@@ -56,12 +56,13 @@ if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
 else:
     print("⚠️ Telegram not configured (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID required)")
 
+# Log canonical brain heartbeat to Airtable once at startup (YAGATI-BRAIN-001)
+print("\n🔍 Logging initial brain heartbeat to Airtable...")
+log_brain_heartbeat()
+
 while True:
     print("\n==============================")
     print("🕒", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-    # Log brain heartbeat to Airtable (YAGATI-BRAIN-001)
-    log_brain_heartbeat()
 
     run_step("brain/analyze_signals.py")
     run_step("brain/send_brain_decisions_v2.py")

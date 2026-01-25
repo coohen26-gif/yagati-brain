@@ -19,12 +19,11 @@ class AirtableLogger:
         self.api_key = os.getenv("AIRTABLE_API_KEY")
         self.base_id = os.getenv("AIRTABLE_BASE_ID")
         self.table_name = "brain_logs"
+        self.configured = False
         
-        # Validate configuration
-        if not self.api_key:
-            raise RuntimeError("AIRTABLE_API_KEY environment variable is required")
-        if not self.base_id:
-            raise RuntimeError("AIRTABLE_BASE_ID environment variable is required")
+        # Check configuration without blocking
+        if not self.api_key or not self.base_id:
+            return
         
         # Construct API URL
         self.api_url = f"https://api.airtable.com/v0/{self.base_id}/{self.table_name}"
@@ -34,6 +33,8 @@ class AirtableLogger:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+        
+        self.configured = True
     
     def log_heartbeat(self, cycle_type="heartbeat", context="GLOBAL", status="ok", note=None):
         """
@@ -48,6 +49,10 @@ class AirtableLogger:
         Returns:
             bool: True if successful, False otherwise
         """
+        # Skip if not configured
+        if not self.configured:
+            return False
+            
         try:
             # Prepare record with current timestamp
             timestamp = datetime.now(timezone.utc).isoformat()
@@ -89,9 +94,13 @@ def log_brain_heartbeat():
     """
     Convenience function to log the canonical YAGATI-BRAIN-001 heartbeat.
     This is the minimal trace that confirms brain execution.
+    Fails gracefully if Airtable is not configured.
     """
     try:
         logger = AirtableLogger()
+        if not logger.configured:
+            print("⚠️ Airtable not configured - heartbeat skipped")
+            return False
         return logger.log_heartbeat(
             cycle_type="heartbeat",
             context="GLOBAL",
@@ -99,5 +108,5 @@ def log_brain_heartbeat():
             note="initial brain heartbeat"
         )
     except Exception as e:
-        print(f"⚠️ Airtable logger not configured or unavailable: {e}")
+        print(f"⚠️ Airtable heartbeat failed (non-blocking): {e}")
         return False
