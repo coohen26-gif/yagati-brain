@@ -15,13 +15,14 @@ except ImportError:
 except Exception as e:
     print(f"⚠️ Error loading .env file: {e}")
 
-# Import telegram notifier
+# Import telegram notifier and airtable logger
 import sys
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 from telegram_notifier import send_telegram_message
+from airtable_logger import log_brain_heartbeat
 
 LOOP_MINUTES = 15  # fréquence du cerveau
 
@@ -58,6 +59,9 @@ else:
 while True:
     print("\n==============================")
     print("🕒", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    # Log brain heartbeat to Airtable (YAGATI-BRAIN-001)
+    log_brain_heartbeat()
 
     run_step("brain/analyze_signals.py")
     run_step("brain/send_brain_decisions_v2.py")
