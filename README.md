@@ -32,9 +32,9 @@ The brain will:
 4. Run the analysis loop every 15 minutes
 5. Log a heartbeat trace to Airtable on each cycle (YAGATI-BRAIN-001)
 
-### Airtable Brain Logs (YAGATI-BRAIN-001)
+### Airtable Brain Logs (YAGATI-BRAIN-001, YAGATI-BRAIN-002)
 
-The brain writes a heartbeat record to Airtable on each execution cycle. This provides a canonical trace of brain activity.
+The brain writes heartbeat, scan, and observation events to Airtable. This provides a canonical trace of brain activity and cognitive processes.
 
 #### Airtable Setup
 
@@ -56,9 +56,29 @@ The brain writes a heartbeat record to Airtable on each execution cycle. This pr
    AIRTABLE_BASE_ID=your_base_id_here
    ```
 
-Each brain cycle will create a record with:
-- `timestamp`: Current UTC time
+#### Event Types
+
+The brain logs three types of events:
+
+##### 1. Heartbeat (YAGATI-BRAIN-001)
+Canonical trace confirming brain execution.
 - `cycle_type`: "heartbeat"
 - `context`: "GLOBAL"
 - `status`: "ok"
 - `note`: "initial brain heartbeat"
+
+##### 2. Scan (YAGATI-BRAIN-002)
+Logged when the brain scans or reads market/symbol data.
+- `cycle_type`: "scan"
+- `context`: Market symbol (e.g., "BTC", "BTCUSDT", "GLOBAL")
+- `status`: "ok"
+- `note`: Short factual text (e.g., "scanning market regime", "fetching signals from API")
+
+##### 3. Observation (YAGATI-BRAIN-002)
+Logged when weak or preliminary patterns are detected.
+- `cycle_type`: "observation"
+- `context`: Market symbol
+- `status`: "weak" or "neutral"
+- `note`: Short descriptive label (e.g., "regime: TREND (UP)", "regime: RANGE")
+
+**Note**: The brain operates in observation-only mode. It does NOT log decision, signal, trade, order, buy/sell, execution, or entry/exit events.
