@@ -96,7 +96,9 @@ def detect_observations():
                                 success_count += 1
             
             except Exception as e:
-                # Silently skip slope check if it fails
+                # Log if slope check fails for debugging
+                if os.getenv("DEBUG"):
+                    print(f"⚠️ Slope check failed for {symbol}: {e}")
                 pass
                 
         except Exception as e:

@@ -66,7 +66,10 @@ while True:
     print("🕒", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     # Log cognitive events (YAGATI-BRAIN-002: scan & observation events)
-    log_cognitive_events()
+    try:
+        log_cognitive_events()
+    except Exception as e:
+        print(f"⚠️ Cognitive events failed (non-blocking): {e}")
 
     run_step("brain/analyze_signals.py")
     run_step("brain/send_brain_decisions_v2.py")
