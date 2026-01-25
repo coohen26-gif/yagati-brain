@@ -110,3 +110,58 @@ def log_brain_heartbeat():
     except Exception as e:
         print(f"⚠️ Airtable heartbeat failed (non-blocking): {e}")
         return False
+
+
+def log_brain_scan(symbol, note=None):
+    """
+    Convenience function to log a market scan event.
+    
+    Args:
+        symbol (str): Market symbol being scanned (e.g. "BTCUSDT")
+        note (str, optional): Additional note (default: "market scanned")
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        logger = AirtableLogger()
+        if not logger.configured:
+            print("⚠️ Airtable not configured - scan skipped")
+            return False
+        return logger.log_heartbeat(
+            cycle_type="scan",
+            context=symbol,
+            status="ok",
+            note=note or "market scanned"
+        )
+    except Exception as e:
+        print(f"⚠️ Airtable scan failed (non-blocking): {e}")
+        return False
+
+
+def log_brain_observation(symbol, status, note):
+    """
+    Convenience function to log a market observation event.
+    
+    Args:
+        symbol (str): Market symbol being observed (e.g. "BTCUSDT")
+        status (str): Observation status ("weak" or "neutral")
+        note (str): Descriptive label (e.g. "RSI divergence", "regime transition detected")
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        logger = AirtableLogger()
+        if not logger.configured:
+            print("⚠️ Airtable not configured - observation skipped")
+            return False
+        return logger.log_heartbeat(
+            cycle_type="observation",
+            context=symbol,
+            status=status,
+            note=note
+        )
+    except Exception as e:
+        print(f"⚠️ Airtable observation failed (non-blocking): {e}")
+        return False

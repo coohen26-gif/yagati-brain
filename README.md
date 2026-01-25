@@ -32,16 +32,35 @@ The brain will:
 4. Run the analysis loop every 15 minutes
 5. Log a heartbeat trace to Airtable on each cycle (YAGATI-BRAIN-001)
 
-### Airtable Brain Logs (YAGATI-BRAIN-001)
+### Airtable Brain Logs (YAGATI-BRAIN-001, YAGATI-BRAIN-002)
 
-The brain writes a heartbeat record to Airtable on each execution cycle. This provides a canonical trace of brain activity.
+The brain writes events to Airtable on each execution cycle. This provides a canonical trace of brain activity.
+
+#### Event Types (cycle_type)
+
+The brain logs three types of events:
+
+1. **heartbeat** - Confirms brain execution (every cycle)
+   - `context`: "GLOBAL"
+   - `status`: "ok"
+   - `note`: "initial brain heartbeat"
+
+2. **scan** - Market symbol scanning events (YAGATI-BRAIN-002)
+   - `context`: Market symbol (e.g. "BTCUSDT", "ETHUSDT", "SOLUSDT")
+   - `status`: "ok"
+   - `note`: "market scanned" (or custom note)
+
+3. **observation** - Pattern detection events (YAGATI-BRAIN-002)
+   - `context`: Market symbol
+   - `status`: "weak" or "neutral"
+   - `note`: Pattern description (e.g. "regime transition detected", "significant upward momentum")
 
 #### Airtable Setup
 
 1. Create a new table named `brain_logs` in your Airtable base
 2. Add the following fields:
    - `timestamp` (Date with time)
-   - `cycle_type` (Single line text or Single select)
+   - `cycle_type` (Single line text or Single select with values: heartbeat, scan, observation)
    - `context` (Single line text)
    - `status` (Single line text)
    - `note` (Long text, optional)
@@ -56,9 +75,32 @@ The brain writes a heartbeat record to Airtable on each execution cycle. This pr
    AIRTABLE_BASE_ID=your_base_id_here
    ```
 
-Each brain cycle will create a record with:
-- `timestamp`: Current UTC time
-- `cycle_type`: "heartbeat"
-- `context`: "GLOBAL"
-- `status`: "ok"
-- `note`: "initial brain heartbeat"
+#### Example Brain Logs Output
+
+Each brain cycle will create records like:
+
+```
+timestamp: 2026-01-25T10:00:00Z
+cycle_type: heartbeat
+context: GLOBAL
+status: ok
+note: initial brain heartbeat
+
+timestamp: 2026-01-25T10:00:01Z
+cycle_type: scan
+context: BTCUSDT
+status: ok
+note: market scanned
+
+timestamp: 2026-01-25T10:00:02Z
+cycle_type: scan
+context: ETHUSDT
+status: ok
+note: market scanned
+
+timestamp: 2026-01-25T10:00:03Z
+cycle_type: observation
+context: BTCUSDT
+status: neutral
+note: trend regime detected (UP)
+```

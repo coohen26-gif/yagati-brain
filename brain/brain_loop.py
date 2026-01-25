@@ -23,6 +23,7 @@ if script_dir not in sys.path:
 
 from telegram_notifier import send_telegram_message
 from airtable_logger import log_brain_heartbeat
+from brain_cognitive_events import log_cognitive_events
 
 LOOP_MINUTES = 15  # fréquence du cerveau
 
@@ -63,6 +64,9 @@ log_brain_heartbeat()
 while True:
     print("\n==============================")
     print("🕒", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    # Log cognitive events (YAGATI-BRAIN-002: scan & observation events)
+    log_cognitive_events()
 
     run_step("brain/analyze_signals.py")
     run_step("brain/send_brain_decisions_v2.py")
