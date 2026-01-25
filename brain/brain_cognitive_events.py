@@ -50,8 +50,10 @@ def detect_observations():
     Detect and log observation events for monitored symbols.
     
     Observations are conservative and sparse:
-    - Regime transitions (RANGE -> TREND, TREND -> RANGE, etc.)
-    - Significant EMA slope changes
+    - Only logs when regime is TRANSITION (indicating a possible regime change in progress)
+    - Only logs when EMA slope is extremely significant (>1.0% change)
+    
+    This ensures observations are sparse and only logged when something notable is happening.
     
     Returns:
         int: Number of successful observation events logged
@@ -65,21 +67,15 @@ def detect_observations():
             regime = regime_data.get("regime")
             bias = regime_data.get("bias")
             
-            # Check for regime transition (conservative detection)
-            # Only log if regime is clearly defined (not TRANSITION)
-            if regime == "TREND" and bias:
-                # Log trend observation
-                note = f"trend regime detected ({bias})"
+            # Only log TRANSITION regime (indicating potential change in progress)
+            # This makes observations sparse - only logged when regime is unclear
+            if regime == "TRANSITION":
+                note = "regime transition detected"
                 if log_brain_observation(symbol, status="neutral", note=note):
                     success_count += 1
+                    continue  # Don't double-log for the same symbol
             
-            elif regime == "RANGE":
-                # Log range observation
-                note = "range regime detected"
-                if log_brain_observation(symbol, status="neutral", note=note):
-                    success_count += 1
-            
-            # Check for significant EMA slope changes (additional conservative check)
+            # Check for very significant EMA slope changes (conservative threshold)
             try:
                 candles = fetch_ohlc(symbol, "1d", limit=30)
                 closes = [float(c["close"]) for c in candles if c.get("close") is not None]
@@ -89,12 +85,12 @@ def detect_observations():
                     if slp is not None:
                         slope_pct = slp * 100.0
                         
-                        # Only log significant slope changes
-                        if abs(slope_pct) >= 0.5:  # 0.5% or more slope
+                        # Only log very significant slope changes (>1% is significant for 20-day slope)
+                        if abs(slope_pct) >= 1.0:
                             if slope_pct > 0:
-                                note = "significant upward momentum"
+                                note = "strong upward momentum"
                             else:
-                                note = "significant downward momentum"
+                                note = "strong downward momentum"
                             
                             if log_brain_observation(symbol, status="weak", note=note):
                                 success_count += 1
