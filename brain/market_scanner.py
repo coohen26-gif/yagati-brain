@@ -59,6 +59,14 @@ MARKET_UNIVERSE = MARKET_UNIVERSE_TOP_10
 # Timeframes to scan
 TIMEFRAMES = ["1h", "4h", "1d"]
 
+# Market context thresholds (volatility %)
+MARKET_CONTEXT_PANIC_THRESHOLD = 6.0   # >6% average volatility = PANIC
+MARKET_CONTEXT_VOLATILE_THRESHOLD = 3.0  # >3% average volatility = VOLATILE
+# ≤3% = NORMAL
+
+# Volatility calculation period for market context
+MARKET_CONTEXT_VOLATILITY_PERIOD = 7  # 7 periods for current volatility
+
 
 def calculate_atr_proxy(candles, period=14):
     """
@@ -367,7 +375,10 @@ def detect_market_context():
                 
                 if candles and len(candles) >= 30:
                     # Calculate current volatility
-                    current_vol = calculate_volatility_pct(candles[-7:], period=7)
+                    current_vol = calculate_volatility_pct(
+                        candles[-MARKET_CONTEXT_VOLATILITY_PERIOD:],
+                        period=MARKET_CONTEXT_VOLATILITY_PERIOD
+                    )
                     if current_vol is not None:
                         volatilities.append(current_vol)
             except Exception:
@@ -380,13 +391,9 @@ def detect_market_context():
         avg_volatility = sum(volatilities) / len(volatilities)
         
         # Thresholds for market context classification
-        # PANIC: Average volatility > 6% (extreme movement)
-        # VOLATILE: Average volatility > 3% (significant movement)
-        # NORMAL: Average volatility <= 3% (typical market)
-        
-        if avg_volatility > 6.0:
+        if avg_volatility > MARKET_CONTEXT_PANIC_THRESHOLD:
             return "PANIC"
-        elif avg_volatility > 3.0:
+        elif avg_volatility > MARKET_CONTEXT_VOLATILE_THRESHOLD:
             return "VOLATILE"
         else:
             return "NORMAL"

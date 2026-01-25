@@ -67,6 +67,7 @@ class SetupsAirtableLogger:
         
         try:
             # Fetch all existing records with status FORMING
+            # Using fixed status value to avoid injection
             params = {
                 "filterByFormula": "{status} = 'FORMING'",
                 "fields": ["symbol", "timeframe", "setup_type", "confidence", "detected_at"]
@@ -93,6 +94,7 @@ class SetupsAirtableLogger:
                     confidence = fields.get("confidence")
                     detected_at = fields.get("detected_at")
                     
+                    # Only cache if all required fields are present
                     if symbol and timeframe and setup_type:
                         key = (symbol, timeframe, setup_type)
                         self.state_cache[key] = {
@@ -118,7 +120,16 @@ class SetupsAirtableLogger:
         Returns:
             tuple: (should_write: bool, record_id: str or None, action: str)
         """
-        key = (setup.get("symbol"), setup.get("timeframe"), setup.get("setup_type"))
+        # Safely extract required fields
+        symbol = setup.get("symbol")
+        timeframe = setup.get("timeframe")
+        setup_type = setup.get("setup_type")
+        
+        # Validate required fields are present
+        if not all([symbol, timeframe, setup_type]):
+            return (False, None, "INVALID")
+        
+        key = (symbol, timeframe, setup_type)
         
         # Check if setup exists in cache
         if key not in self.state_cache:
@@ -167,12 +178,21 @@ class SetupsAirtableLogger:
             )
             
             if 200 <= response.status_code < 300:
-                print(f"🔄 Setup updated: {setup['symbol']} {setup['timeframe']} - {setup['setup_type']} (confidence: {setup['confidence']})")
+                symbol = setup.get("symbol", "?")
+                timeframe = setup.get("timeframe", "?")
+                setup_type = setup.get("setup_type", "?")
+                confidence = setup.get("confidence", "?")
+                print(f"🔄 Setup updated: {symbol} {timeframe} - {setup_type} (confidence: {confidence})")
                 
-                # Update cache
-                key = (setup.get("symbol"), setup.get("timeframe"), setup.get("setup_type"))
-                self.state_cache[key]["confidence"] = setup.get("confidence")
-                self.state_cache[key]["detected_at"] = setup.get("detected_at")
+                # Update cache - safely extract key components
+                symbol_key = setup.get("symbol")
+                timeframe_key = setup.get("timeframe")
+                setup_type_key = setup.get("setup_type")
+                
+                if symbol_key and timeframe_key and setup_type_key:
+                    key = (symbol_key, timeframe_key, setup_type_key)
+                    self.state_cache[key]["confidence"] = setup.get("confidence")
+                    self.state_cache[key]["detected_at"] = setup.get("detected_at")
                 
                 return True
             else:
@@ -217,16 +237,25 @@ class SetupsAirtableLogger:
             )
             
             if 200 <= response.status_code < 300:
-                print(f"✅ Setup logged: {setup['symbol']} {setup['timeframe']} - {setup['setup_type']} (confidence: {setup['confidence']})")
+                symbol = setup.get("symbol", "?")
+                timeframe = setup.get("timeframe", "?")
+                setup_type = setup.get("setup_type", "?")
+                confidence = setup.get("confidence", "?")
+                print(f"✅ Setup logged: {symbol} {timeframe} - {setup_type} (confidence: {confidence})")
                 
-                # Add to cache
-                key = (setup.get("symbol"), setup.get("timeframe"), setup.get("setup_type"))
-                record_data = response.json()
-                self.state_cache[key] = {
-                    "record_id": record_data.get("id"),
-                    "confidence": setup.get("confidence"),
-                    "detected_at": setup.get("detected_at")
-                }
+                # Add to cache - safely extract key components
+                symbol_key = setup.get("symbol")
+                timeframe_key = setup.get("timeframe")
+                setup_type_key = setup.get("setup_type")
+                
+                if symbol_key and timeframe_key and setup_type_key:
+                    key = (symbol_key, timeframe_key, setup_type_key)
+                    record_data = response.json()
+                    self.state_cache[key] = {
+                        "record_id": record_data.get("id"),
+                        "confidence": setup.get("confidence"),
+                        "detected_at": setup.get("detected_at")
+                    }
                 
                 return True
             else:
