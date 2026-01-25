@@ -110,3 +110,56 @@ def log_brain_heartbeat():
     except Exception as e:
         print(f"⚠️ Airtable heartbeat failed (non-blocking): {e}")
         return False
+
+
+def log_brain_scan(symbol, note="market scanned"):
+    """
+    Log a scan event when the brain reads market data.
+    
+    Args:
+        symbol (str): Market symbol (e.g., "BTCUSDT", "BTC", "GLOBAL")
+        note (str): Short factual text describing the scan
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        logger = AirtableLogger()
+        if not logger.configured:
+            return False
+        return logger.log_heartbeat(
+            cycle_type="scan",
+            context=symbol,
+            status="ok",
+            note=note
+        )
+    except Exception as e:
+        print(f"⚠️ Scan event failed (non-blocking): {e}")
+        return False
+
+
+def log_brain_observation(symbol, status="weak", note="pattern detected"):
+    """
+    Log an observation event for weak/preliminary patterns.
+    
+    Args:
+        symbol (str): Market symbol (e.g., "BTCUSDT", "BTC")
+        status (str): Status of observation ("weak" or "neutral")
+        note (str): Short descriptive label (e.g., "RSI divergence", "regime: TREND")
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        logger = AirtableLogger()
+        if not logger.configured:
+            return False
+        return logger.log_heartbeat(
+            cycle_type="observation",
+            context=symbol,
+            status=status,
+            note=note
+        )
+    except Exception as e:
+        print(f"⚠️ Observation event failed (non-blocking): {e}")
+        return False
