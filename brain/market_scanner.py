@@ -24,7 +24,37 @@ from market_regime import fetch_ohlc, ema
 
 
 # Market universe (top market cap crypto assets)
-MARKET_UNIVERSE = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "ADAUSDT"]
+# Start with top 10, expandable to top 25/50
+MARKET_UNIVERSE_TOP_10 = [
+    "BTCUSDT",   # Bitcoin
+    "ETHUSDT",   # Ethereum
+    "SOLUSDT",   # Solana
+    "BNBUSDT",   # Binance Coin
+    "XRPUSDT",   # Ripple
+    "ADAUSDT",   # Cardano
+    "AVAXUSDT",  # Avalanche
+    "DOGEUSDT",  # Dogecoin
+    "DOTUSDT",   # Polkadot
+    "MATICUSDT"  # Polygon
+]
+
+# Expandable universe configurations
+MARKET_UNIVERSE_TOP_25 = MARKET_UNIVERSE_TOP_10 + [
+    "TRXUSDT", "LINKUSDT", "TONUSDT", "ATOMUSDT", "LTCUSDT",
+    "NEARUSDT", "ICPUSDT", "UNIUSDT", "APTUSDT", "FILUSDT",
+    "STXUSDT", "SUIUSDT", "ARBUSDT", "OPUSDT", "INJUSDT"
+]
+
+MARKET_UNIVERSE_TOP_50 = MARKET_UNIVERSE_TOP_25 + [
+    "FTMUSDT", "RENDERUSDT", "RNDRUSDT", "IMXUSDT", "ALGOUSDT",
+    "AAVEUSDT", "VETUSDT", "MANAUSDT", "SANDUSDT", "THETAUSDT",
+    "AXSUSDT", "EGLDUSDT", "FLOWUSDT", "APEUSDT", "LDOUSDT",
+    "CHZUSDT", "QNTUSDT", "GALAUSDT", "XTZUSDT", "EOSUSDT",
+    "GRTUSDT", "MKRUSDT", "ZILUSDT", "ENJUSDT", "CFXUSDT"
+]
+
+# Active universe (use top 10 for now)
+MARKET_UNIVERSE = MARKET_UNIVERSE_TOP_10
 
 # Timeframes to scan
 TIMEFRAMES = ["1h", "4h", "1d"]
@@ -316,6 +346,56 @@ def detect_compression_expansion(candles):
     return None
 
 
+def detect_market_context():
+    """
+    Detect global market context based on volatility across major symbols.
+    Simple rule-based classification: NORMAL / VOLATILE / PANIC
+    
+    Returns:
+        str: Market context (NORMAL, VOLATILE, or PANIC)
+    """
+    try:
+        # Use top 3 symbols for global market context (BTC, ETH, SOL)
+        major_symbols = MARKET_UNIVERSE[:3]
+        
+        volatilities = []
+        
+        for symbol in major_symbols:
+            try:
+                # Fetch recent data on 1h timeframe for responsiveness
+                candles = fetch_ohlc(symbol, "1h", limit=50)
+                
+                if candles and len(candles) >= 30:
+                    # Calculate current volatility
+                    current_vol = calculate_volatility_pct(candles[-7:], period=7)
+                    if current_vol is not None:
+                        volatilities.append(current_vol)
+            except Exception:
+                continue
+        
+        if not volatilities:
+            return "NORMAL"  # Default if we can't determine
+        
+        # Calculate average volatility across major symbols
+        avg_volatility = sum(volatilities) / len(volatilities)
+        
+        # Thresholds for market context classification
+        # PANIC: Average volatility > 6% (extreme movement)
+        # VOLATILE: Average volatility > 3% (significant movement)
+        # NORMAL: Average volatility <= 3% (typical market)
+        
+        if avg_volatility > 6.0:
+            return "PANIC"
+        elif avg_volatility > 3.0:
+            return "VOLATILE"
+        else:
+            return "NORMAL"
+            
+    except Exception as e:
+        print(f"⚠️ Error detecting market context: {e}")
+        return "NORMAL"  # Default on error
+
+
 def scan_symbol_timeframe(symbol, timeframe):
     """
     Scan a single symbol on a single timeframe for setups.
@@ -363,17 +443,27 @@ def scan_symbol_timeframe(symbol, timeframe):
 def scan_all_markets():
     """
     Scan all symbols across all timeframes.
+    Adds global market context to all detected setups.
     
     Returns:
-        list: All detected setups
+        list: All detected setups with market_context field
     """
     all_setups = []
     
     print("\n🔍 Starting market scan...")
     
+    # Detect global market context once per scan
+    market_context = detect_market_context()
+    print(f"📊 Market context: {market_context}")
+    
     for symbol in MARKET_UNIVERSE:
         for timeframe in TIMEFRAMES:
             setups = scan_symbol_timeframe(symbol, timeframe)
+            
+            # Add market context to each setup
+            for setup in setups:
+                setup["market_context"] = market_context
+            
             all_setups.extend(setups)
             
             if setups:

@@ -110,6 +110,11 @@ note: trend regime detected (UP)
 
 The brain now actively scans markets and logs detected setups to a separate table: `setups_forming`.
 
+**Key Features:**
+- **Deduplication:** One setup per (symbol, timeframe, setup_type) - updates existing records
+- **Smart Writes:** Only writes on state changes (new setup or confidence change)
+- **Market Context:** Adds global market context (NORMAL, VOLATILE, PANIC)
+
 #### Airtable Setup for Setups
 
 1. Create a new table named `setups_forming` in your Airtable base
@@ -121,6 +126,7 @@ The brain now actively scans markets and logs detected setups to a separate tabl
    - `confidence` (Single line text) - Confidence level (LOW, MEDIUM, HIGH)
    - `detected_at` (Date with time) - When the setup was detected
    - `context` (Long text) - Additional context about the setup
+   - `market_context` (Single line text) - Global market context (NORMAL, VOLATILE, PANIC)
 
 #### Setup Types
 
@@ -132,7 +138,8 @@ The scanner detects four types of setups:
 
 #### Market Scanner Details
 
-- **Universe:** BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, ADAUSDT (top market cap assets)
+- **Universe:** Top 10 crypto assets (BTC, ETH, SOL, BNB, XRP, ADA, AVAX, DOGE, DOT, MATIC)
+  - Expandable to top 25/50 in configuration
 - **Timeframes:** 1H, 4H, 1D
 - **Metrics:** Volatility (ATR proxy), price change, MA distance, proximity to extremes
 - **Frequency:** Every 15 minutes (same as heartbeat)

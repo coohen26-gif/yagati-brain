@@ -4,7 +4,11 @@
 
 The brain now actively scans crypto markets to detect early trading setups and logs them to Airtable.
 
-**Important:** This is NOT signal execution. The scanner only detects and logs patterns when market conditions are extreme.
+**Key Features:**
+- **Deduplication:** One setup per (symbol, timeframe, setup_type) - updates existing records
+- **Smart Writes:** Only writes on state changes (new setup or confidence change)
+- **Market Context:** Adds global market context (NORMAL, VOLATILE, PANIC)
+- **Important:** This is NOT signal execution. The scanner only detects and logs patterns.
 
 ## What Was Added
 
@@ -13,7 +17,8 @@ The brain now actively scans crypto markets to detect early trading setups and l
 Scans crypto markets using simple, explainable metrics (NO ML/AI).
 
 **Universe:**
-- BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, ADAUSDT (top market cap assets)
+- **Top 10** (active): BTC, ETH, SOL, BNB, XRP, ADA, AVAX, DOGE, DOT, MATIC
+- **Expandable:** Pre-configured for top 25 and top 50 (change `MARKET_UNIVERSE` variable)
 
 **Timeframes:**
 - 1H, 4H, 1D
@@ -49,9 +54,25 @@ Scans crypto markets using simple, explainable metrics (NO ML/AI).
    - Confidence: HIGH if >2x expansion, MEDIUM if >1.5x
    - Context: Volatility progression
 
+**Market Context Detection:**
+
+Global market context based on average volatility across BTC, ETH, SOL:
+- **PANIC:** Average volatility > 6% (extreme market movement)
+- **VOLATILE:** Average volatility > 3% (significant movement)
+- **NORMAL:** Average volatility ≤ 3% (typical market conditions)
+
 ### 2. Setup Logger (`setup_logger.py`)
 
 Logs detected setups to Airtable table: `setups_forming`
+
+**Features:**
+- **Deduplication:** Loads existing setups into memory cache on startup
+- **State Tracking:** Compares current setups with cached state
+- **Smart Writes:**
+  - **CREATE:** New setup (not in cache)
+  - **UPDATE:** Existing setup with confidence change
+  - **SKIP:** Existing setup with no changes
+- **Batch Processing:** Efficient handling of multiple setups
 
 ### 3. Integration (`brain_loop.py`)
 
@@ -59,7 +80,7 @@ Added market scan to the main brain loop:
 - Runs every 15 minutes (same as heartbeat)
 - Does NOT break existing heartbeat
 - Fails gracefully if scan fails
-- Logs setups to Airtable if detected
+- Only writes to Airtable on state changes
 
 ## Airtable Setup
 
@@ -67,15 +88,16 @@ Added market scan to the main brain loop:
 
 Create this table in your Airtable base with the following fields:
 
-| Field Name    | Field Type        | Description                                    |
-|---------------|-------------------|------------------------------------------------|
-| symbol        | Single line text  | Market symbol (e.g., "BTCUSDT")                |
-| timeframe     | Single line text  | Timeframe (e.g., "1h", "4h", "1d")             |
-| setup_type    | Single line text  | Type of setup detected                         |
-| status        | Single line text  | Always "FORMING" for now                       |
-| confidence    | Single line text  | Confidence level (LOW, MEDIUM, HIGH)           |
-| detected_at   | Date with time    | When the setup was detected (ISO 8601)         |
-| context       | Long text         | Additional context about the setup             |
+| Field Name      | Field Type        | Description                                    |
+|-----------------|-------------------|------------------------------------------------|
+| symbol          | Single line text  | Market symbol (e.g., "BTCUSDT")                |
+| timeframe       | Single line text  | Timeframe (e.g., "1h", "4h", "1d")             |
+| setup_type      | Single line text  | Type of setup detected                         |
+| status          | Single line text  | Always "FORMING" for now                       |
+| confidence      | Single line text  | Confidence level (LOW, MEDIUM, HIGH)           |
+| detected_at     | Date with time    | When the setup was detected (ISO 8601)         |
+| context         | Long text         | Additional context about the setup             |
+| market_context  | Single line text  | Global market context (NORMAL, VOLATILE, PANIC)|
 
 **Setup Types:**
 - `volatility_expansion` - Volatility spike detected
