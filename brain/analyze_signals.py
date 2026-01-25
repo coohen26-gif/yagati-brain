@@ -130,16 +130,15 @@ def main():
     # Le régime BTC est observé mais NON bloquant pour la preuve
     regime_result = detect_regime("BTC")
     
-    # Log observation if regime is detected
-    if regime_result:
-        regime = regime_result.get("regime", "UNKNOWN")
-        bias = regime_result.get("bias")
-        if bias:
-            note = f"regime: {regime} ({bias})"
-        else:
-            note = f"regime: {regime}"
-        # Use neutral status for regime observations
-        log_brain_observation("BTC", status="neutral", note=note)
+    # Log observation for regime detection (always present)
+    regime = regime_result.get("regime", "UNKNOWN")
+    bias = regime_result.get("bias")
+    if bias:
+        note = f"regime: {regime} ({bias})"
+    else:
+        note = f"regime: {regime}"
+    # Use neutral status for regime observations
+    log_brain_observation("BTC", status="neutral", note=note)
 
     opened = []
 

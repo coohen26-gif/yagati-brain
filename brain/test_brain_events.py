@@ -43,7 +43,7 @@ def main():
         print("  export AIRTABLE_BASE_ID=your_base_id")
         return 1
     
-    print(f"✅ AIRTABLE_API_KEY: {api_key[:10]}...")
+    print(f"✅ AIRTABLE_API_KEY: ***{api_key[-4:]}")
     print(f"✅ AIRTABLE_BASE_ID: {base_id}")
     print()
     
