@@ -73,7 +73,7 @@ class AirtableLogger:
                 timeout=10
             )
             
-            if response.status_code == 200:
+            if 200 <= response.status_code < 300:
                 print(f"✅ Brain heartbeat logged to Airtable: {timestamp}")
                 return True
             else:

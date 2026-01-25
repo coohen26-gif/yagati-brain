@@ -14,7 +14,6 @@ Usage:
 
 import sys
 import os
-from pathlib import Path
 
 # Add brain directory to path
 script_dir = os.path.dirname(os.path.abspath(__file__))
