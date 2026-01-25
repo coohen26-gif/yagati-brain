@@ -8,6 +8,7 @@ from brain_core.trade_model import TradeModel
 from brain_core.trade_state_types import TradeDirection, TradeState
 from brain_core.position_manager import PositionManager
 from brain_core.trade_repository import TradeRepository
+from airtable_logger import log_brain_scan, log_brain_observation
 
 # =====================================================
 # CONFIG
@@ -123,10 +124,29 @@ def main():
     last_run = load_last_run()
     now = datetime.now(timezone.utc)
 
+    # Log scan event for BTC regime detection
+    log_brain_scan("BTC", note="scanning market regime")
+    
     # Le régime BTC est observé mais NON bloquant pour la preuve
-    detect_regime("BTC")
+    regime_result = detect_regime("BTC")
+    
+    # Log observation if regime is detected
+    if regime_result:
+        regime_type = regime_result.get("regime")
+        bias = regime_result.get("bias")
+        if regime_type == "TREND" and bias:
+            # Log observation for trend detection
+            observation_note = f"regime: {regime_type} ({bias})"
+            log_brain_observation("BTC", status="neutral", note=observation_note)
+        elif regime_type in ["RANGE", "TRANSITION"]:
+            # Log observation for range/transition detection
+            observation_note = f"regime: {regime_type}"
+            log_brain_observation("BTC", status="neutral", note=observation_note)
 
     opened = []
+    
+    # Log scan when fetching signals
+    log_brain_scan("GLOBAL", note="fetching signals from API")
 
     for s in fetch_signals():
         created_at = datetime.fromisoformat(s["created_at"].replace("Z", "+00:00"))
@@ -140,6 +160,9 @@ def main():
         symbol = s.get("symbol")
         if not symbol or not can_open(symbol):
             continue
+        
+        # Log scan for each symbol being analyzed
+        log_brain_scan(symbol, note="analyzing signal")
 
         trade = TradeModel(
             trade_id=f"proof_{s['id']}",
