@@ -24,6 +24,8 @@ if script_dir not in sys.path:
 from telegram_notifier import send_telegram_message
 from airtable_logger import log_brain_heartbeat
 from brain_cognitive_events import log_cognitive_events
+from market_scanner import scan_all_markets
+from setup_logger import log_setups_to_airtable
 
 LOOP_MINUTES = 15  # fréquence du cerveau
 
@@ -70,6 +72,16 @@ while True:
         log_cognitive_events()
     except Exception as e:
         print(f"⚠️ Cognitive events failed (non-blocking): {e}")
+
+    # V1.1.3-01: Market scan for setups forming
+    try:
+        setups = scan_all_markets()
+        if setups:
+            log_setups_to_airtable(setups)
+        else:
+            print("ℹ️ No setups detected (market quiet)")
+    except Exception as e:
+        print(f"⚠️ Market scan failed (non-blocking): {e}")
 
     run_step("brain/analyze_signals.py")
     run_step("brain/send_brain_decisions_v2.py")

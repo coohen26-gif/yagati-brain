@@ -31,6 +31,7 @@ The brain will:
 3. Send a startup confirmation message
 4. Run the analysis loop every 15 minutes
 5. Log a heartbeat trace to Airtable on each cycle (YAGATI-BRAIN-001)
+6. Scan markets for setups forming (V1.1.3-01)
 
 ### Airtable Brain Logs (YAGATI-BRAIN-001, YAGATI-BRAIN-002)
 
@@ -104,3 +105,45 @@ context: BTCUSDT
 status: neutral
 note: trend regime detected (UP)
 ```
+
+### Market Setups Table (V1.1.3-01)
+
+The brain now actively scans markets and logs detected setups to a separate table: `setups_forming`.
+
+**Key Features:**
+- **Deduplication:** One setup per (symbol, timeframe, setup_type) - updates existing records
+- **Smart Writes:** Only writes on state changes (new setup or confidence change)
+- **Market Context:** Adds global market context (NORMAL, VOLATILE, PANIC)
+
+#### Airtable Setup for Setups
+
+1. Create a new table named `setups_forming` in your Airtable base
+2. Add the following fields:
+   - `symbol` (Single line text) - Market symbol (e.g., "BTCUSDT")
+   - `timeframe` (Single line text) - Timeframe (e.g., "1h", "4h", "1d")
+   - `setup_type` (Single line text) - Type of setup detected
+   - `status` (Single line text) - Setup status (always "FORMING" for now)
+   - `confidence` (Single line text) - Confidence level (LOW, MEDIUM, HIGH)
+   - `detected_at` (Date with time) - When the setup was detected
+   - `context` (Long text) - Additional context about the setup
+   - `market_context` (Single line text) - Global market context (NORMAL, VOLATILE, PANIC)
+
+#### Setup Types
+
+The scanner detects four types of setups:
+- `volatility_expansion` - Volatility spike detected (current > 2x average)
+- `range_break_attempt` - Price near recent high/low with expanding volatility
+- `trend_acceleration` - Price extended abnormally from moving averages
+- `compression_expansion` - Low volatility followed by sudden expansion (squeeze release)
+
+#### Market Scanner Details
+
+- **Universe:** Top 10 crypto assets (BTC, ETH, SOL, BNB, XRP, ADA, AVAX, DOGE, DOT, MATIC)
+  - Expandable to top 25/50 in configuration
+- **Timeframes:** 1H, 4H, 1D
+- **Metrics:** Volatility (ATR proxy), price change, MA distance, proximity to extremes
+- **Frequency:** Every 15 minutes (same as heartbeat)
+- **Important:** This is NOT signal execution. The scanner only detects and logs patterns.
+
+For more details, see [brain/MARKET_SCANNER.md](brain/MARKET_SCANNER.md).
+
