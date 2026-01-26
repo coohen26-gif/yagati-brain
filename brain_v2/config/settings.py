@@ -56,7 +56,6 @@ OHLC_LIMIT = 260
 
 # Volatility calculation
 VOLATILITY_PERIOD = 20  # Number of candles for volatility calculation
-VOLATILITY_THRESHOLD = 2.0  # Multiplier for expansion detection (current > threshold * average)
 
 # Moving average periods
 MA_FAST = 20

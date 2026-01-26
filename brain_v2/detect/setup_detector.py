@@ -73,7 +73,8 @@ def detect_trend_with_structure(features: Dict) -> Optional[Dict]:
     if trend_strength < 50:  # At least partial alignment
         return None
     
-    # Check trend confirmation (not overextended)
+    # Check trend confirmation (price sufficiently away from MA)
+    # We want meaningful distance, not too close to MA
     if abs(ma_distance_trend) < TREND_STRENGTH_THRESHOLD * 100:  # Convert to percentage
         return None
     
