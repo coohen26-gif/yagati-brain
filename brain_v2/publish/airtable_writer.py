@@ -88,7 +88,7 @@ class AirtableWriter:
             True if successful
         """
         fields = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
             "cycle_type": cycle_type,
             "context": context,
             "status": status,
@@ -184,7 +184,7 @@ class AirtableWriter:
             "setup_type": decision.get("setup_type"),
             "status": "FORMING",
             "confidence": decision.get("confidence"),
-            "detected_at": datetime.now(timezone.utc).isoformat(),
+            "detected_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
             "context": decision.get("justification", ""),
             "market_context": "NORMAL",  # Can be enhanced later
         }

@@ -168,6 +168,93 @@ class TestAirtableTokenNormalization(unittest.TestCase):
         print(f"✓ Triple Bearer: '{os.environ['AIRTABLE_API_KEY']}' -> '{actual}'")
 
 
+class TestTimestampFormatting(unittest.TestCase):
+    """Test that timestamps are formatted without microseconds"""
+    
+    def _assert_no_microseconds(self, timestamp_str):
+        """
+        Helper to verify timestamp has no microseconds.
+        
+        Args:
+            timestamp_str: ISO 8601 timestamp string
+        """
+        from datetime import datetime
+        
+        # Parse the ISO timestamp
+        dt = datetime.fromisoformat(timestamp_str)
+        
+        # Assert microseconds are zero
+        self.assertEqual(dt.microsecond, 0, 
+            f"Timestamp should not have microseconds: {timestamp_str}")
+    
+    @patch('brain_v2.publish.airtable_writer.requests.post')
+    def test_brain_log_timestamp_no_microseconds(self, mock_post):
+        """Test that write_brain_log generates timestamps without microseconds"""
+        # Mock successful response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+        
+        from brain_v2.publish.airtable_writer import AirtableWriter
+        
+        writer = AirtableWriter()
+        result = writer.write_brain_log(
+            cycle_type="heartbeat",
+            context="GLOBAL",
+            status="ok",
+            note="Test log"
+        )
+        
+        # Verify the request was made successfully
+        self.assertTrue(result)
+        self.assertTrue(mock_post.called)
+        
+        # Get the payload that was sent
+        call_kwargs = mock_post.call_args[1]
+        payload = call_kwargs['json']
+        timestamp = payload['fields']['timestamp']
+        
+        # Verify timestamp has no microseconds using datetime parsing
+        self._assert_no_microseconds(timestamp)
+        print(f"✓ brain_log timestamp has no microseconds: '{timestamp}'")
+    
+    @patch('brain_v2.publish.airtable_writer.requests.post')
+    def test_setup_forming_timestamp_no_microseconds(self, mock_post):
+        """Test that write_setup_forming generates detected_at without microseconds"""
+        # Mock successful response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+        
+        from brain_v2.publish.airtable_writer import AirtableWriter
+        
+        writer = AirtableWriter()
+        
+        decision = {
+            "status": "forming",
+            "symbol": "BTCUSDT",
+            "timeframe": "1h",
+            "setup_type": "volatility_expansion",
+            "confidence": "HIGH",
+            "justification": "Test setup"
+        }
+        
+        result = writer.write_setup_forming(decision)
+        
+        # Verify the request was made successfully
+        self.assertTrue(result)
+        self.assertTrue(mock_post.called)
+        
+        # Get the payload that was sent
+        call_kwargs = mock_post.call_args[1]
+        payload = call_kwargs['json']
+        detected_at = payload['fields']['detected_at']
+        
+        # Verify timestamp has no microseconds using datetime parsing
+        self._assert_no_microseconds(detected_at)
+        print(f"✓ detected_at timestamp has no microseconds: '{detected_at}'")
+
+
 class TestAirtableWriterMethods(unittest.TestCase):
     """Test that all Airtable writer methods use the normalized headers"""
     
@@ -249,6 +336,7 @@ def run_tests():
     suite = unittest.TestSuite()
     
     suite.addTests(loader.loadTestsFromTestCase(TestAirtableTokenNormalization))
+    suite.addTests(loader.loadTestsFromTestCase(TestTimestampFormatting))
     suite.addTests(loader.loadTestsFromTestCase(TestAirtableWriterMethods))
     
     runner = unittest.TextTestRunner(verbosity=2)
