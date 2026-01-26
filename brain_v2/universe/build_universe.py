@@ -1,11 +1,9 @@
-# Your updated content will be placed here, ensuring to adjust line 15 as specified.
+from brain_v2.universe.bitget_client import fetch_usdt_perpetual_markets
 
-# Assuming the rest of the file remains the same, ensure to edit only the necessary line accordingly.
+def main():
+    """Main entry point for universe builder"""
+    bitget_symbols = fetch_usdt_perpetual_markets()
+    print(f"Fetched {len(bitget_symbols)} symbols from Bitget USDT Perpetual Futures")
 
-# Example of the content up till line 15:
-
-# Some previous code here...
-
-bitget_symbols = fetch_usdt_perpetual_markets()  # Updated line
-
-# The rest of the code continues...
+if __name__ == "__main__":
+    main()
