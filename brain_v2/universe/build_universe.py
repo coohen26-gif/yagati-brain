@@ -1,5 +1,11 @@
-# Updated line 15 in brain_v2/universe/build_universe.py
+# Your updated content will be placed here, ensuring to adjust line 15 as specified.
 
-bitget_symbols = fetch_usdt_perpetual_markets()  
+# Assuming the rest of the file remains the same, ensure to edit only the necessary line accordingly.
 
-# This removes the undefined config reference and uses the default base_url parameter.
+# Example of the content up till line 15:
+
+# Some previous code here...
+
+bitget_symbols = fetch_usdt_perpetual_markets()  # Updated line
+
+# The rest of the code continues...
