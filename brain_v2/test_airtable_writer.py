@@ -132,24 +132,40 @@ class TestAirtableTokenNormalization(unittest.TestCase):
         print(f"✓ Bearer + whitespace: '{os.environ['AIRTABLE_API_KEY']}' -> '{actual}'")
     
     def test_token_with_double_bearer_prefix(self):
-        """Test that double Bearer prefix results in 'Bearer Bearer <token>' (edge case)"""
+        """Test that double Bearer prefix is properly normalized"""
         os.environ["AIRTABLE_API_KEY"] = "Bearer Bearer keyABC123XYZ"
         self._reload_modules()
         
         from brain_v2.publish.airtable_writer import AirtableWriter
         writer = AirtableWriter()
         
-        # Edge case: 'Bearer Bearer keyABC123XYZ' becomes 'Bearer Bearer keyABC123XYZ'
-        # because we check .lower() but remove by position, so:
+        # The while loop removes ALL 'Bearer ' prefixes:
         # 1. 'Bearer Bearer keyABC123XYZ'.lower().startswith('bearer ') -> True
-        # 2. Remove first 7 chars -> 'Bearer keyABC123XYZ'
-        # 3. Add 'Bearer ' -> 'Bearer Bearer keyABC123XYZ'
-        # This is acceptable as double Bearer prefix is extremely unlikely in practice
-        expected = "Bearer Bearer keyABC123XYZ"
+        # 2. Remove first 7 chars + strip -> 'Bearer keyABC123XYZ'
+        # 3. Still starts with 'bearer ' -> Remove again -> 'keyABC123XYZ'
+        # 4. Add 'Bearer ' -> 'Bearer keyABC123XYZ' ✅
+        expected = "Bearer keyABC123XYZ"
         actual = writer.headers["Authorization"]
         
         self.assertEqual(actual, expected)
-        print(f"✓ Double Bearer (edge case): '{os.environ['AIRTABLE_API_KEY']}' -> '{actual}'")
+        self.assertNotIn("Bearer Bearer", actual)
+        print(f"✓ Double Bearer: '{os.environ['AIRTABLE_API_KEY']}' -> '{actual}'")
+    
+    def test_token_with_triple_bearer_prefix(self):
+        """Test that multiple Bearer prefixes are properly normalized"""
+        os.environ["AIRTABLE_API_KEY"] = "Bearer Bearer Bearer keyABC123XYZ"
+        self._reload_modules()
+        
+        from brain_v2.publish.airtable_writer import AirtableWriter
+        writer = AirtableWriter()
+        
+        # The while loop removes ALL 'Bearer ' prefixes
+        expected = "Bearer keyABC123XYZ"
+        actual = writer.headers["Authorization"]
+        
+        self.assertEqual(actual, expected)
+        self.assertNotIn("Bearer Bearer", actual)
+        print(f"✓ Triple Bearer: '{os.environ['AIRTABLE_API_KEY']}' -> '{actual}'")
 
 
 class TestAirtableWriterMethods(unittest.TestCase):

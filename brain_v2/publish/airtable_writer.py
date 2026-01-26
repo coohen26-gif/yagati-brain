@@ -26,10 +26,10 @@ class AirtableWriter:
         self.base_id = AIRTABLE_BASE_ID
         self.base_url = f"https://api.airtable.com/v0/{self.base_id}"
         
-        # Normalize token: strip whitespace and remove existing "Bearer " prefix
+        # Normalize token: strip whitespace and remove all existing "Bearer " prefixes
         token = self.api_key.strip()
-        if token.lower().startswith("bearer "):
-            token = token[7:].strip()  # Remove "Bearer " (7 characters)
+        while token.lower().startswith("bearer "):
+            token = token[7:].strip()  # Remove "Bearer " (7 characters) and strip again
         
         self.headers = {
             "Authorization": f"Bearer {token}",
