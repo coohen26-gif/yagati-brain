@@ -171,6 +171,22 @@ class TestAirtableTokenNormalization(unittest.TestCase):
 class TestTimestampFormatting(unittest.TestCase):
     """Test that timestamps are formatted without microseconds"""
     
+    def _assert_no_microseconds(self, timestamp_str):
+        """
+        Helper to verify timestamp has no microseconds.
+        
+        Args:
+            timestamp_str: ISO 8601 timestamp string
+        """
+        from datetime import datetime
+        
+        # Parse the ISO timestamp
+        dt = datetime.fromisoformat(timestamp_str)
+        
+        # Assert microseconds are zero
+        self.assertEqual(dt.microsecond, 0, 
+            f"Timestamp should not have microseconds: {timestamp_str}")
+    
     @patch('brain_v2.publish.airtable_writer.requests.post')
     def test_brain_log_timestamp_no_microseconds(self, mock_post):
         """Test that write_brain_log generates timestamps without microseconds"""
@@ -198,9 +214,8 @@ class TestTimestampFormatting(unittest.TestCase):
         payload = call_kwargs['json']
         timestamp = payload['fields']['timestamp']
         
-        # Verify timestamp format: ISO 8601 without microseconds
-        # Example: 2026-01-26T18:40:18+00:00 (no .713015)
-        self.assertNotIn('.', timestamp.split('T')[1].split('+')[0].split('-')[0])
+        # Verify timestamp has no microseconds using datetime parsing
+        self._assert_no_microseconds(timestamp)
         print(f"✓ brain_log timestamp has no microseconds: '{timestamp}'")
     
     @patch('brain_v2.publish.airtable_writer.requests.post')
@@ -235,9 +250,8 @@ class TestTimestampFormatting(unittest.TestCase):
         payload = call_kwargs['json']
         detected_at = payload['fields']['detected_at']
         
-        # Verify timestamp format: ISO 8601 without microseconds
-        # Example: 2026-01-26T18:40:18+00:00 (no .713015)
-        self.assertNotIn('.', detected_at.split('T')[1].split('+')[0].split('-')[0])
+        # Verify timestamp has no microseconds using datetime parsing
+        self._assert_no_microseconds(detected_at)
         print(f"✓ detected_at timestamp has no microseconds: '{detected_at}'")
 
 
