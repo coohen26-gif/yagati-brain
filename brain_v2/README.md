@@ -85,6 +85,12 @@ Create two tables in your Airtable base:
 ### 3. Install Dependencies
 
 ```bash
+pip install -r brain_v2/requirements.txt
+```
+
+Or install individually:
+
+```bash
 pip install requests python-dotenv
 ```
 

@@ -1,0 +1,8 @@
+# Brain YAGATI v2 - Dependencies
+# Minimal dependencies for deterministic market analysis
+
+# HTTP requests (for Supabase and Airtable APIs)
+requests>=2.31.0
+
+# Environment variable management
+python-dotenv>=1.0.0

@@ -22,7 +22,7 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from brain_v2.config.settings import TIMEFRAMES
+from brain_v2.config.settings import TIMEFRAMES, TABLE_BRAIN_LOGS
 from brain_v2.config.symbols import SYMBOL_UNIVERSE
 from brain_v2.ingest.market_data import MarketDataFetcher
 from brain_v2.features.technical import compute_features
@@ -216,6 +216,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # Import TABLE names for display
-    from brain_v2.config.settings import TABLE_BRAIN_LOGS
     main()
