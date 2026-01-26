@@ -1,8 +1,8 @@
 # Bitget Client
 
-# Assuming the rest of the file precedes this...
+# Updated example code.
 
-# Define parameters for client initialization
+
+# Existing code starts here
 params = {"productType": "umcbl"}
-
-# Other code remains unchanged...
+# Additional code follows...
