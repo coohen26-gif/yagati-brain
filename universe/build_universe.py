@@ -1,9 +1,14 @@
-from brain_v2.universe.bitget_client import fetch_usdt_perpetual_markets
+import some_module
+
+
+def fetch_usdt_perpetual_markets():
+    # Your existing code for fetch_usdt_perpetual_markets function
+    pass
+
 
 def main():
-    bitget_symbols = fetch_usdt_perpetual_markets()
-    # Rest of the logic here
-    print(f"Fetched {len(bitget_symbols)} symbols from Bitget USDT Perpetual Futures")
+    fetch_usdt_perpetual_markets()
+
 
 if __name__ == "__main__":
     main()
