@@ -6,7 +6,7 @@ Provides:
 - Intersection logic for CoinGecko and Bitget symbols
 """
 
-from typing import List, Set
+from typing import List, Set, Tuple, Dict
 
 # Stablecoin denylist (case-insensitive)
 STABLECOIN_DENYLIST = {
@@ -102,7 +102,7 @@ def compute_intersection(
     coingecko_coins: List[dict],
     bitget_symbols: List[str],
     target_size: int = 50
-) -> tuple[List[str], dict]:
+) -> Tuple[List[str], Dict]:
     """
     Compute intersection of CoinGecko coins and Bitget symbols.
     
