@@ -1,15 +1,17 @@
-import pandas as pd
+# Updated build_universe.py
 
+# Import statements
 from brain_v2.universe.bitget_client import fetch_usdt_perpetual_markets
 
-# ... other imports
+# Other parts of the code remain unchanged...
 
-# Existing functions
+# Update the section instantiating the bitget_client
+# Removed the BitgetClient instantiation
+# bitget_client = BitgetClient(base_url=config["bitget_api_base_url"])
+# Removed method call
+# bitget_symbols = bitget_client.fetch_usdt_perpetual_markets()
 
+# Updated the call to use the functional API directly
+bitget_symbols = fetch_usdt_perpetual_markets(base_url=config["bitget_api_base_url"])
 
-# Original lines involving BitgetClient
-
-
-# Call the fetch_usdt_perpetual_markets function instead of instantiating BitgetClient
-markets_data = fetch_usdt_perpetual_markets(base_url)
-# ... continue with processing markets_data
+# Continue with the rest of the code...
