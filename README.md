@@ -1,6 +1,32 @@
 # yagati-brain
 YAGATI - Brain-first trading system 
 
+## Brain Modules
+
+This repository contains two independent brain modules:
+
+### 1. Brain v1 (Legacy - `brain/`)
+The original event-driven trading brain with scanner v1.1.3-01.
+
+**Run**: `python3 brain/brain_loop.py`
+
+### 2. Brain YAGATI v2 (NEW - `brain_v2/`)
+Deterministic decision module (MVP) - fully independent from v1.
+
+**Run**: `python brain_v2/run.py`
+
+📖 **Full documentation**: [brain_v2/README.md](brain_v2/README.md)
+
+Key features of Brain v2:
+- ✅ Deterministic, auditable decisions
+- ✅ Real market data (Supabase API)
+- ✅ Setup detection (forming only)
+- ✅ Complete governance & logging
+- ✅ Airtable integration (`brain_logs` + `setups_forming`)
+- ❌ No trading/execution (MVP scope)
+
+---
+
 ## Setup
 
 ### Environment Variables
