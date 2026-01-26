@@ -11,6 +11,7 @@ Brain YAGATI v2 is a fully independent, deterministic decision module that analy
 
 - ✅ **Real Market Data**: Uses existing Supabase API (no fake data)
 - ✅ **Deterministic Decisions**: All logic is reproducible and auditable
+- ✅ **Universe Builder**: Generates canonical tradable universe from CoinGecko + Bitget
 - ✅ **Setup Detection**: Detects forming setups based on explicit rules
 - ✅ **Governance & Logging**: Every action is logged; no silent errors
 - ✅ **Airtable Integration**: Writes to `brain_logs` and `setups_forming` tables
@@ -35,8 +36,13 @@ brain_v2/
 │   └── decision_engine.py   # Scoring + justification
 ├── publish/                  # Airtable writes
 │   └── airtable_writer.py   # brain_logs + setups_forming
-└── governance/               # Logging & traceability
-    └── logger.py            # Explicit error logging
+├── governance/               # Logging & traceability
+│   └── logger.py            # Explicit error logging
+└── universe/                 # Universe builder (NEW)
+    ├── build_universe.py    # CLI entry point
+    ├── coingecko_client.py  # CoinGecko API client
+    ├── bitget_client.py     # Bitget API client
+    └── filters.py           # Stablecoin filtering + intersection
 ```
 
 ## Setup
@@ -101,6 +107,22 @@ Run the brain:
 ```bash
 python brain_v2/run.py
 ```
+
+### Universe Builder
+
+Generate the tradable universe (replaces Supabase market-data dependency):
+
+```bash
+python3 -m brain_v2.universe.build_universe
+```
+
+This creates a deterministic list of tradable symbols by:
+1. Fetching top 100 cryptocurrencies from CoinGecko
+2. Excluding stablecoins
+3. Intersecting with Bitget USDT Perpetual Futures
+4. Outputting ≤50 symbols to JSON
+
+**See**: [/docs/universe_builder.md](/docs/universe_builder.md) for full documentation.
 
 ### Expected Output
 
