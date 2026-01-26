@@ -20,6 +20,7 @@ Deterministic decision module (MVP) - fully independent from v1.
 Key features of Brain v2:
 - ✅ Deterministic, auditable decisions
 - ✅ Real market data (Supabase API)
+- ✅ **Universe Builder** - Deterministic tradable symbol generation (CoinGecko + Bitget)
 - ✅ Setup detection (forming only)
 - ✅ Complete governance & logging
 - ✅ Airtable integration (`brain_logs` + `setups_forming`)
@@ -172,4 +173,44 @@ The scanner detects four types of setups:
 - **Important:** This is NOT signal execution. The scanner only detects and logs patterns.
 
 For more details, see [brain/MARKET_SCANNER.md](brain/MARKET_SCANNER.md).
+
+---
+
+## Universe Builder (Brain v2 - NEW)
+
+The **Universe Builder** is a deterministic tool for generating a canonical list of tradable cryptocurrency symbols. It replaces the broken Supabase market-data dependency with a reliable approach using public APIs.
+
+### Quick Start
+
+Generate the tradable universe:
+
+```bash
+python3 -m brain_v2.universe.build_universe
+```
+
+This will:
+1. Fetch top 100 cryptocurrencies by market cap from CoinGecko
+2. Exclude stablecoins (USDT, USDC, DAI, etc.)
+3. Intersect with Bitget USDT Perpetual Futures markets
+4. Output ≤50 symbols to `/opt/yagati/data/universe_usdt_perp.json`
+
+### Features
+
+- ✅ **Deterministic**: Same inputs → same outputs
+- ✅ **Public APIs only**: No API keys required
+- ✅ **Comprehensive logging**: Clear step-by-step output
+- ✅ **No Airtable writes**: Pure data generation
+- ✅ **Fully tested**: 31 unit and integration tests
+
+### Configuration
+
+Configure via environment variables:
+
+```bash
+export UNIVERSE_OUTPUT_PATH=/custom/path/universe.json
+export COINGECKO_TOP_N=200
+python3 -m brain_v2.universe.build_universe
+```
+
+**Full Documentation**: [docs/universe_builder.md](docs/universe_builder.md)
 
