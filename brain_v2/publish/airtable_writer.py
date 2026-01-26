@@ -29,7 +29,7 @@ class AirtableWriter:
         # Normalize token: strip whitespace and remove all existing "Bearer " prefixes
         token = self.api_key.strip()
         while token.lower().startswith("bearer "):
-            token = token[7:].strip()  # Remove "Bearer " (7 characters) and strip again
+            token = token[len("bearer "):].strip()  # Remove "Bearer " prefix and strip again
         
         self.headers = {
             "Authorization": f"Bearer {token}",
