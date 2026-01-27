@@ -1,11 +1,15 @@
 import requests
 from collections import defaultdict
+import os
 
 # =========================
 # CONFIG
 # =========================
-SUPABASE_URL = "https://jhtfuqpnggmblsdftlry.supabase.co"
-ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpodGZ1cXBuZ2dtYmxzZGZ0bHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5NDQxNzQsImV4cCI6MjA4MzUyMDE3NH0.hhdYOKXQJ4A9oADhuljNICDgABdu8jW54jfkXzidWdY"
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL or not ANON_KEY:
+    raise RuntimeError("SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required")
 
 HEADERS = {
     "Authorization": f"Bearer {ANON_KEY}",
