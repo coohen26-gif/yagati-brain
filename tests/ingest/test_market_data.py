@@ -45,17 +45,19 @@ class TestMarketDataFetcher(unittest.TestCase):
     
     def test_calculate_days(self):
         """Test days calculation for different timeframes"""
-        # 1h: 260 candles * 1 hour = 260 hours / 24 = 10.83 days -> 11 days
-        days = self.fetcher._calculate_days("1h", 260)
-        self.assertEqual(days, 11)
+        import math
         
-        # 4h: 260 candles * 4 hours = 1040 hours / 24 = 43.33 days -> 44 days
+        # 1h: 260 candles * 1 hour = 260 hours / 24 = 10.83 days -> ceil = 11 days
+        days = self.fetcher._calculate_days("1h", 260)
+        self.assertEqual(days, math.ceil(260 / 24))
+        
+        # 4h: 260 candles * 4 hours = 1040 hours / 24 = 43.33 days -> ceil = 44 days
         days = self.fetcher._calculate_days("4h", 260)
-        self.assertEqual(days, 44)
+        self.assertEqual(days, math.ceil((260 * 4) / 24))
         
         # 1d: 260 candles * 24 hours = 6240 hours / 24 = 260 days
         days = self.fetcher._calculate_days("1d", 260)
-        self.assertEqual(days, 261)
+        self.assertEqual(days, 260)
     
     def test_get_interval(self):
         """Test interval mapping"""

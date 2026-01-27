@@ -56,6 +56,7 @@ class MarketDataFetcher:
     
     def _calculate_days(self, timeframe: str, limit: int) -> int:
         """Calculate days parameter for CoinGecko based on timeframe and limit"""
+        import math
         # Map timeframe to hours
         tf_hours = {
             "1h": 1,
@@ -63,7 +64,8 @@ class MarketDataFetcher:
             "1d": 24,
         }
         hours = tf_hours.get(timeframe, 1)
-        days = (limit * hours) // 24 + 1
+        # Use ceiling to ensure we get enough data
+        days = math.ceil((limit * hours) / 24)
         return max(1, days)  # Minimum 1 day
     
     def _get_interval(self, timeframe: str) -> str:
@@ -116,10 +118,15 @@ class MarketDataFetcher:
                 # Start new candle
                 current_interval_start = interval_start
                 interval_prices = [price]
-                interval_volumes = [volumes[i][1]] if i < len(volumes) else []
+                # Safely extract volume if available
+                if i < len(volumes) and len(volumes[i]) > 1:
+                    interval_volumes = [volumes[i][1]]
+                else:
+                    interval_volumes = []
             else:
                 interval_prices.append(price)
-                if i < len(volumes):
+                # Safely extract volume if available
+                if i < len(volumes) and len(volumes[i]) > 1:
                     interval_volumes.append(volumes[i][1])
         
         # Close last candle
@@ -262,8 +269,6 @@ class MarketDataFetcher:
                         continue
                     else:
                         raise Exception(f"Network error from {source} fetching {symbol} {timeframe}: {e}")
-            
-            raise Exception(f"Failed to fetch {symbol} {timeframe} from CoinGecko after {max_retries} attempts")
             
         except ValueError as e:
             # Symbol not in mapping
