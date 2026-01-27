@@ -14,7 +14,7 @@ import requests
 import time
 from typing import List, Dict, Optional
 from brain_v2.config.settings import OHLC_LIMIT
-from brain_v2.config.symbols import SYMBOL_UNIVERSE, SYMBOL_UNIVERSE_EXTENDED
+from brain_v2.config.symbols import SYMBOL_UNIVERSE
 from brain_v2.governance.logger import get_logger
 
 
@@ -31,6 +31,8 @@ SUPPORTED_TIMEFRAMES = {
 
 # Hardcoded CoinGecko ID mappings for known symbols
 # This maps USDT trading pairs to their CoinGecko coin IDs
+# NOTE: Map includes extended symbols beyond current SYMBOL_UNIVERSE
+# to support future universe expansion without code changes
 COINGECKO_ID_MAP = {
     "BTCUSDT": "bitcoin",
     "ETHUSDT": "ethereum",
