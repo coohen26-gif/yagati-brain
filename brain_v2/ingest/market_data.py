@@ -5,6 +5,7 @@ Fetches REAL OHLC data using CoinGecko /ohlc endpoint.
 No fake data allowed. No reconstruction allowed.
 
 Data Quality: NATIVE OHLC from CoinGecko (not derived/approximate)
+Timeframes: Restricted to CoinGecko /ohlc supported intervals only
 """
 
 import json
@@ -13,48 +14,57 @@ import requests
 import time
 from typing import List, Dict, Optional
 from brain_v2.config.settings import OHLC_LIMIT
+from brain_v2.config.symbols import SYMBOL_UNIVERSE, SYMBOL_UNIVERSE_EXTENDED
 from brain_v2.governance.logger import get_logger
 
 
 # Rate limiting configuration
 MAX_API_CALLS_PER_CYCLE = 100  # Maximum API calls per analysis cycle
 
+# CoinGecko /ohlc endpoint supported timeframes
+# Based on CoinGecko API: days parameter determines granularity
+# days=1: 4-hour candles, days=7-90: 4-hour candles, days>90: daily candles
+SUPPORTED_TIMEFRAMES = {
+    "4h": 7,    # 4-hour candles, 7 days of data
+    "1d": 180,  # Daily candles, 180 days of data
+}
 
-def load_symbol_mapping() -> Dict[str, str]:
+# Hardcoded CoinGecko ID mappings for known symbols
+# This maps USDT trading pairs to their CoinGecko coin IDs
+COINGECKO_ID_MAP = {
+    "BTCUSDT": "bitcoin",
+    "ETHUSDT": "ethereum",
+    "BNBUSDT": "binancecoin",
+    "XRPUSDT": "ripple",
+    "ADAUSDT": "cardano",
+    "DOGEUSDT": "dogecoin",
+    "SOLUSDT": "solana",
+    "DOTUSDT": "polkadot",
+    "MATICUSDT": "matic-network",
+    "LINKUSDT": "chainlink",
+    "AVAXUSDT": "avalanche-2",
+    "ATOMUSDT": "cosmos",
+    "LTCUSDT": "litecoin",
+    "UNIUSDT": "uniswap",
+    "ETCUSDT": "ethereum-classic",
+    "XLMUSDT": "stellar",
+    "ALGOUSDT": "algorand",
+    "TRXUSDT": "tron",
+    "VETUSDT": "vechain",
+    "FILUSDT": "filecoin",
+}
+
+
+def get_active_symbols() -> List[str]:
     """
-    Load symbol to CoinGecko ID mapping from JSON file.
+    Get list of active trading symbols from universe configuration.
     
     Returns:
-        Dictionary mapping trading symbols to CoinGecko IDs
-    
-    Raises:
-        FileNotFoundError: If mapping file doesn't exist
-        ValueError: If mapping file is invalid
+        List of active trading symbols
     """
-    mapping_file = os.path.join(
-        os.path.dirname(__file__),
-        "symbol_mapping.json"
-    )
-    
-    if not os.path.exists(mapping_file):
-        raise FileNotFoundError(
-            f"Symbol mapping file not found: {mapping_file}. "
-            "This file is required for CoinGecko API integration."
-        )
-    
-    try:
-        with open(mapping_file, "r") as f:
-            data = json.load(f)
-        
-        mappings = data.get("mappings", {})
-        if not mappings:
-            raise ValueError("Symbol mapping file contains no mappings")
-        
-        return mappings
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in symbol mapping file: {e}")
-    except Exception as e:
-        raise ValueError(f"Error loading symbol mapping: {e}")
+    # Use SYMBOL_UNIVERSE as the primary source
+    # This is centralized in brain_v2/config/symbols.py
+    return SYMBOL_UNIVERSE.copy()
 
 
 class MarketDataFetcher:
@@ -67,14 +77,19 @@ class MarketDataFetcher:
             "User-Agent": "YAGATI-Brain/2.0 (Market Analysis Bot)",
             "Accept": "application/json",
         }
-        # Load symbol mapping dynamically
-        self.symbol_mapping = load_symbol_mapping()
+        # Get active symbols from universe configuration
+        self.active_symbols = get_active_symbols()
         self.api_call_count = 0  # Track API calls in current cycle
         
         logger = get_logger()
         logger.info(
-            f"MarketDataFetcher initialized with {len(self.symbol_mapping)} symbol mappings",
-            context={"data_quality": "NATIVE_OHLC", "source": "CoinGecko /ohlc endpoint"}
+            f"MarketDataFetcher initialized with {len(self.active_symbols)} symbols from universe",
+            context={
+                "data_quality": "NATIVE_OHLC",
+                "source": "CoinGecko /ohlc endpoint",
+                "supported_timeframes": list(SUPPORTED_TIMEFRAMES.keys()),
+                "symbols": self.active_symbols
+            }
         )
     
     def reset_api_call_count(self):
@@ -115,42 +130,46 @@ class MarketDataFetcher:
         Raises:
             ValueError: If symbol not in mapping
         """
-        if symbol not in self.symbol_mapping:
+        if symbol not in COINGECKO_ID_MAP:
             raise ValueError(
-                f"Symbol {symbol} not in CoinGecko mapping. "
-                f"Available symbols: {', '.join(sorted(self.symbol_mapping.keys()))}"
+                f"Symbol {symbol} not in CoinGecko ID mapping. "
+                f"Available symbols: {', '.join(sorted(COINGECKO_ID_MAP.keys()))}"
             )
-        return self.symbol_mapping[symbol]
+        return COINGECKO_ID_MAP[symbol]
     
-    def _map_timeframe_to_days(self, timeframe: str) -> int:
+    def _validate_timeframe(self, timeframe: str) -> None:
         """
-        Map timeframe to CoinGecko /ohlc days parameter.
-        
-        CoinGecko /ohlc endpoint supports specific day ranges.
+        Validate that timeframe is supported by CoinGecko /ohlc endpoint.
         
         Args:
-            timeframe: Timeframe string (e.g., "1h", "4h", "1d")
+            timeframe: Timeframe string (e.g., "4h", "1d")
+            
+        Raises:
+            ValueError: If timeframe not supported
+        """
+        if timeframe not in SUPPORTED_TIMEFRAMES:
+            raise ValueError(
+                f"Timeframe '{timeframe}' not supported by CoinGecko /ohlc endpoint. "
+                f"Supported timeframes: {', '.join(SUPPORTED_TIMEFRAMES.keys())}"
+            )
+    
+    def _get_days_for_timeframe(self, timeframe: str) -> int:
+        """
+        Get days parameter for CoinGecko /ohlc based on timeframe.
+        
+        CoinGecko /ohlc endpoint uses days parameter to determine granularity:
+        - days=1: 4-hour candles
+        - days=7-90: 4-hour candles
+        - days>90: daily candles
+        
+        Args:
+            timeframe: Timeframe (must be in SUPPORTED_TIMEFRAMES)
             
         Returns:
             Days parameter for CoinGecko API
         """
-        # CoinGecko /ohlc endpoint behavior:
-        # - days=1: returns 4-hour candles for last 1-2 days
-        # - days=7-90: returns 4-hour candles
-        # - days>90: returns daily candles
-        
-        if timeframe == "1h":
-            # For 1h data, we need recent 4h candles (closest available)
-            return 1
-        elif timeframe == "4h":
-            # 4h candles available for 1-90 days
-            return 7
-        elif timeframe == "1d":
-            # Daily candles available for days>90
-            return 180
-        else:
-            # Default to 7 days
-            return 7
+        self._validate_timeframe(timeframe)
+        return SUPPORTED_TIMEFRAMES[timeframe]
     
     def fetch_ohlc(
         self, 
@@ -162,10 +181,11 @@ class MarketDataFetcher:
         Fetch NATIVE OHLC candle data from CoinGecko /ohlc endpoint.
         
         DATA QUALITY: NATIVE OHLC (not reconstructed/approximate)
+        TIMEFRAMES: Restricted to CoinGecko /ohlc supported intervals only
         
         Args:
             symbol: Market symbol (e.g., "BTCUSDT")
-            timeframe: Timeframe (e.g., "1h", "4h", "1d")
+            timeframe: Timeframe (must be in SUPPORTED_TIMEFRAMES: "4h" or "1d")
             limit: Number of candles to fetch
             
         Returns:
@@ -173,8 +193,12 @@ class MarketDataFetcher:
             
         Raises:
             Exception: On API error (to be caught and logged by caller)
+            ValueError: If timeframe not supported
         """
         logger = get_logger()
+        
+        # Validate timeframe is supported
+        self._validate_timeframe(timeframe)
         
         # Check rate limit before making call
         if not self.check_rate_limit(estimated_calls=1):
@@ -190,8 +214,8 @@ class MarketDataFetcher:
             # Get CoinGecko ID
             coin_id = self._get_coin_id(symbol)
             
-            # Calculate days parameter
-            days = self._map_timeframe_to_days(timeframe)
+            # Get days parameter for this timeframe
+            days = self._get_days_for_timeframe(timeframe)
             
             # Build URL - using NATIVE /ohlc endpoint
             url = f"{self.base_url}/coins/{coin_id}/ohlc"
@@ -206,7 +230,8 @@ class MarketDataFetcher:
                     "endpoint": "/ohlc",
                     "data_quality": "NATIVE_OHLC",
                     "coin_id": coin_id,
-                    "days": days
+                    "days": days,
+                    "timeframe": timeframe
                 }
             )
             

@@ -6,59 +6,39 @@ Tests for NATIVE OHLC fetching from CoinGecko /ohlc endpoint.
 
 import sys
 import os
-import json
 import unittest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from brain_v2.ingest.market_data import (
     MarketDataFetcher, 
-    load_symbol_mapping,
+    get_active_symbols,
+    SUPPORTED_TIMEFRAMES,
+    COINGECKO_ID_MAP,
     MAX_API_CALLS_PER_CYCLE
 )
 
 
-class TestSymbolMapping(unittest.TestCase):
-    """Test symbol mapping loading"""
+class TestSymbolConfiguration(unittest.TestCase):
+    """Test symbol configuration"""
     
-    @patch("builtins.open", new_callable=mock_open, read_data='{"mappings": {"BTCUSDT": "bitcoin", "ETHUSDT": "ethereum"}}')
-    @patch("os.path.exists", return_value=True)
-    def test_load_symbol_mapping_success(self, mock_exists, mock_file):
-        """Test successful symbol mapping load"""
-        mappings = load_symbol_mapping()
-        self.assertIsInstance(mappings, dict)
-        self.assertEqual(mappings["BTCUSDT"], "bitcoin")
-        self.assertEqual(mappings["ETHUSDT"], "ethereum")
-    
-    @patch("os.path.exists", return_value=False)
-    def test_load_symbol_mapping_file_not_found(self, mock_exists):
-        """Test error when mapping file doesn't exist"""
-        with self.assertRaises(FileNotFoundError):
-            load_symbol_mapping()
-    
-    @patch("builtins.open", new_callable=mock_open, read_data='invalid json')
-    @patch("os.path.exists", return_value=True)
-    def test_load_symbol_mapping_invalid_json(self, mock_exists, mock_file):
-        """Test error when mapping file has invalid JSON"""
-        with self.assertRaises(ValueError):
-            load_symbol_mapping()
+    def test_get_active_symbols(self):
+        """Test getting active symbols from universe"""
+        symbols = get_active_symbols()
+        self.assertIsInstance(symbols, list)
+        self.assertGreater(len(symbols), 0)
+        # Should return symbols from SYMBOL_UNIVERSE
+        self.assertIn("BTCUSDT", symbols)
 
 
 class TestMarketDataFetcher(unittest.TestCase):
     """Test MarketDataFetcher class"""
     
-    @patch("brain_v2.ingest.market_data.load_symbol_mapping")
     @patch("brain_v2.ingest.market_data.get_logger")
-    def setUp(self, mock_logger, mock_load_mapping):
+    def setUp(self, mock_logger):
         """Set up test fixtures"""
-        # Mock symbol mapping
-        mock_load_mapping.return_value = {
-            "BTCUSDT": "bitcoin",
-            "ETHUSDT": "ethereum",
-            "SOLUSDT": "solana"
-        }
         mock_logger.return_value = MagicMock()
         self.fetcher = MarketDataFetcher()
     
@@ -68,7 +48,8 @@ class TestMarketDataFetcher(unittest.TestCase):
         self.assertIn("User-Agent", self.fetcher.headers)
         self.assertIn("Accept", self.fetcher.headers)
         self.assertEqual(self.fetcher.api_call_count, 0)
-        self.assertIsNotNone(self.fetcher.symbol_mapping)
+        self.assertIsNotNone(self.fetcher.active_symbols)
+        self.assertGreater(len(self.fetcher.active_symbols), 0)
     
     def test_reset_api_call_count(self):
         """Test API call counter reset"""
@@ -105,20 +86,32 @@ class TestMarketDataFetcher(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.fetcher._get_coin_id("INVALIDUSDT")
         
-        self.assertIn("not in CoinGecko mapping", str(context.exception))
+        self.assertIn("not in CoinGecko ID mapping", str(context.exception))
     
-    def test_map_timeframe_to_days(self):
-        """Test timeframe to days mapping"""
-        # 1h -> 1 day (gets 4h candles)
-        days = self.fetcher._map_timeframe_to_days("1h")
-        self.assertEqual(days, 1)
+    def test_validate_timeframe_supported(self):
+        """Test timeframe validation for supported timeframes"""
+        # Should not raise for supported timeframes
+        self.fetcher._validate_timeframe("4h")
+        self.fetcher._validate_timeframe("1d")
+    
+    def test_validate_timeframe_unsupported(self):
+        """Test timeframe validation for unsupported timeframes"""
+        with self.assertRaises(ValueError) as context:
+            self.fetcher._validate_timeframe("1h")
+        self.assertIn("not supported", str(context.exception))
         
+        with self.assertRaises(ValueError) as context:
+            self.fetcher._validate_timeframe("15m")
+        self.assertIn("not supported", str(context.exception))
+    
+    def test_get_days_for_timeframe(self):
+        """Test days parameter retrieval for timeframes"""
         # 4h -> 7 days
-        days = self.fetcher._map_timeframe_to_days("4h")
+        days = self.fetcher._get_days_for_timeframe("4h")
         self.assertEqual(days, 7)
         
         # 1d -> 180 days
-        days = self.fetcher._map_timeframe_to_days("1d")
+        days = self.fetcher._get_days_for_timeframe("1d")
         self.assertEqual(days, 180)
     
     @patch("brain_v2.ingest.market_data.time.sleep")
@@ -140,8 +133,8 @@ class TestMarketDataFetcher(unittest.TestCase):
         ]
         mock_get.return_value = mock_response
         
-        # Call fetch_ohlc
-        ohlc = self.fetcher.fetch_ohlc("BTCUSDT", "1h", 10)
+        # Call fetch_ohlc with supported timeframe
+        ohlc = self.fetcher.fetch_ohlc("BTCUSDT", "4h", 10)
         
         # Verify results
         self.assertIsNotNone(ohlc)
@@ -177,6 +170,18 @@ class TestMarketDataFetcher(unittest.TestCase):
     
     @patch("brain_v2.ingest.market_data.time.sleep")
     @patch("brain_v2.ingest.market_data.get_logger")
+    def test_fetch_ohlc_unsupported_timeframe(self, mock_logger, mock_sleep):
+        """Test fetch_ohlc with unsupported timeframe"""
+        mock_logger_instance = MagicMock()
+        mock_logger.return_value = mock_logger_instance
+        
+        with self.assertRaises(ValueError) as context:
+            self.fetcher.fetch_ohlc("BTCUSDT", "1h", 10)
+        
+        self.assertIn("not supported", str(context.exception))
+    
+    @patch("brain_v2.ingest.market_data.time.sleep")
+    @patch("brain_v2.ingest.market_data.get_logger")
     def test_fetch_ohlc_rate_limit_exceeded(self, mock_logger, mock_sleep):
         """Test fetch_ohlc when rate limit is exceeded"""
         mock_logger_instance = MagicMock()
@@ -186,22 +191,21 @@ class TestMarketDataFetcher(unittest.TestCase):
         self.fetcher.api_call_count = MAX_API_CALLS_PER_CYCLE
         
         with self.assertRaises(Exception) as context:
-            self.fetcher.fetch_ohlc("BTCUSDT", "1h", 10)
+            self.fetcher.fetch_ohlc("BTCUSDT", "4h", 10)
         
         self.assertIn("API call limit exceeded", str(context.exception))
     
     @patch("brain_v2.ingest.market_data.time.sleep")
-    @patch("brain_v2.ingest.market_data.requests.get")
     @patch("brain_v2.ingest.market_data.get_logger")
-    def test_fetch_ohlc_invalid_symbol(self, mock_logger, mock_get, mock_sleep):
+    def test_fetch_ohlc_invalid_symbol(self, mock_logger, mock_sleep):
         """Test fetch_ohlc with invalid symbol"""
         mock_logger_instance = MagicMock()
         mock_logger.return_value = mock_logger_instance
         
         with self.assertRaises(Exception) as context:
-            self.fetcher.fetch_ohlc("INVALIDUSDT", "1h", 10)
+            self.fetcher.fetch_ohlc("INVALIDUSDT", "4h", 10)
         
-        self.assertIn("Symbol mapping error", str(context.exception))
+        self.assertIn("not in CoinGecko ID mapping", str(context.exception))
     
     @patch("brain_v2.ingest.market_data.time.sleep")
     @patch("brain_v2.ingest.market_data.get_logger")
@@ -216,18 +220,34 @@ class TestMarketDataFetcher(unittest.TestCase):
                 {"timestamp": 1000000000, "open": 50000, "high": 51000, "low": 49000, "close": 50500, "volume": 0}
             ]
             
-            results = self.fetcher.fetch_multiple_timeframes("BTCUSDT", ["1h", "4h", "1d"])
+            results = self.fetcher.fetch_multiple_timeframes("BTCUSDT", ["4h", "1d"])
             
             # Should have results for all timeframes
-            self.assertEqual(len(results), 3)
-            self.assertIn("1h", results)
+            self.assertEqual(len(results), 2)
             self.assertIn("4h", results)
             self.assertIn("1d", results)
             
             # Each timeframe should have data
-            self.assertIsNotNone(results["1h"])
             self.assertIsNotNone(results["4h"])
             self.assertIsNotNone(results["1d"])
+
+
+class TestConfiguration(unittest.TestCase):
+    """Test configuration constants"""
+    
+    def test_supported_timeframes(self):
+        """Test SUPPORTED_TIMEFRAMES configuration"""
+        self.assertIn("4h", SUPPORTED_TIMEFRAMES)
+        self.assertIn("1d", SUPPORTED_TIMEFRAMES)
+        self.assertNotIn("1h", SUPPORTED_TIMEFRAMES)
+        self.assertNotIn("15m", SUPPORTED_TIMEFRAMES)
+    
+    def test_coingecko_id_map(self):
+        """Test COINGECKO_ID_MAP has required symbols"""
+        self.assertIn("BTCUSDT", COINGECKO_ID_MAP)
+        self.assertIn("ETHUSDT", COINGECKO_ID_MAP)
+        self.assertEqual(COINGECKO_ID_MAP["BTCUSDT"], "bitcoin")
+        self.assertEqual(COINGECKO_ID_MAP["ETHUSDT"], "ethereum")
 
 
 if __name__ == "__main__":
