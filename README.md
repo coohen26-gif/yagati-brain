@@ -1,6 +1,41 @@
 # yagati-brain
 YAGATI - Brain-first trading system 
 
+---
+
+## 🚀 Bootstrap d'un nouveau chat (Context Pack)
+
+Pour démarrer une nouvelle conversation avec le contexte complet du projet YAGATI, suivez ces étapes :
+
+### Étape 1 : Copier le Context Pack
+Copiez le contenu du fichier **[docs/YAGATI_CONTEXT_PACK.md](docs/YAGATI_CONTEXT_PACK.md)** dans votre nouveau chat.
+
+Ce fichier contient :
+- Les règles absolues du projet
+- Le pipeline de trading
+- Les modules actifs et leur statut
+- Les interdictions et contraintes
+- L'état actuel du projet
+
+### Étape 2 : Références pour approfondir (optionnel)
+
+Si vous avez besoin de plus de détails, consultez ces documents :
+
+- **[docs/YAGATI_KERNEL.md](docs/YAGATI_KERNEL.md)** — Source de vérité stable (principes, architecture, gouvernance)
+- **[docs/YAGATI_STATE.md](docs/YAGATI_STATE.md)** — Snapshot de l'état actuel du projet
+- **[docs/YAGATI_DECISIONS.md](docs/YAGATI_DECISIONS.md)** — Journal des décisions majeures
+- **[docs/OPS.md](docs/OPS.md)** — Workflow opérationnel de l'équipe
+
+### Étape 3 : Commencer votre travail
+
+Vous êtes prêt ! Le context pack contient tout ce qu'il faut pour :
+- Comprendre les contraintes du projet (GitHub source unique, Copilot→PR, pas de hotfix)
+- Connaître le pipeline (Signaux → Signal Center → /day → Paper Trading → Bitget)
+- Respecter les interdictions (Binance, fake data, WebSockets)
+- Suivre les priorités trading (EV, drawdown, risk-of-ruin)
+
+---
+
 ## Brain Modules
 
 This repository contains two brain modules:
