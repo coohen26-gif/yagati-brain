@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "description": "Deterministic mapping of trading symbols to CoinGecko coin IDs",
+  "source": "CoinGecko API",
+  "last_updated": "2026-01-27",
+  "mappings": {
+    "BTCUSDT": "bitcoin",
+    "ETHUSDT": "ethereum",
+    "BNBUSDT": "binancecoin",
+    "XRPUSDT": "ripple",
+    "ADAUSDT": "cardano",
+    "DOGEUSDT": "dogecoin",
+    "SOLUSDT": "solana",
+    "DOTUSDT": "polkadot",
+    "MATICUSDT": "matic-network",
+    "LINKUSDT": "chainlink",
+    "AVAXUSDT": "avalanche-2",
+    "ATOMUSDT": "cosmos",
+    "LTCUSDT": "litecoin",
+    "UNIUSDT": "uniswap",
+    "ETCUSDT": "ethereum-classic",
+    "XLMUSDT": "stellar",
+    "ALGOUSDT": "algorand",
+    "TRXUSDT": "tron",
+    "VETUSDT": "vechain",
+    "FILUSDT": "filecoin"
+  }
+}

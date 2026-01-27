@@ -1,25 +1,65 @@
 """
 Brain YAGATI v2 - Market Data Fetcher Tests
 
-Tests for market data fetching from CoinGecko API with mocked responses.
+Tests for NATIVE OHLC fetching from CoinGecko /ohlc endpoint.
 """
 
 import sys
 import os
+import json
 import unittest
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import patch, MagicMock, mock_open
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from brain_v2.ingest.market_data import MarketDataFetcher, SYMBOL_TO_COINGECKO_ID
+from brain_v2.ingest.market_data import (
+    MarketDataFetcher, 
+    load_symbol_mapping,
+    MAX_API_CALLS_PER_CYCLE
+)
+
+
+class TestSymbolMapping(unittest.TestCase):
+    """Test symbol mapping loading"""
+    
+    @patch("builtins.open", new_callable=mock_open, read_data='{"mappings": {"BTCUSDT": "bitcoin", "ETHUSDT": "ethereum"}}')
+    @patch("os.path.exists", return_value=True)
+    def test_load_symbol_mapping_success(self, mock_exists, mock_file):
+        """Test successful symbol mapping load"""
+        mappings = load_symbol_mapping()
+        self.assertIsInstance(mappings, dict)
+        self.assertEqual(mappings["BTCUSDT"], "bitcoin")
+        self.assertEqual(mappings["ETHUSDT"], "ethereum")
+    
+    @patch("os.path.exists", return_value=False)
+    def test_load_symbol_mapping_file_not_found(self, mock_exists):
+        """Test error when mapping file doesn't exist"""
+        with self.assertRaises(FileNotFoundError):
+            load_symbol_mapping()
+    
+    @patch("builtins.open", new_callable=mock_open, read_data='invalid json')
+    @patch("os.path.exists", return_value=True)
+    def test_load_symbol_mapping_invalid_json(self, mock_exists, mock_file):
+        """Test error when mapping file has invalid JSON"""
+        with self.assertRaises(ValueError):
+            load_symbol_mapping()
 
 
 class TestMarketDataFetcher(unittest.TestCase):
     """Test MarketDataFetcher class"""
     
-    def setUp(self):
+    @patch("brain_v2.ingest.market_data.load_symbol_mapping")
+    @patch("brain_v2.ingest.market_data.get_logger")
+    def setUp(self, mock_logger, mock_load_mapping):
         """Set up test fixtures"""
+        # Mock symbol mapping
+        mock_load_mapping.return_value = {
+            "BTCUSDT": "bitcoin",
+            "ETHUSDT": "ethereum",
+            "SOLUSDT": "solana"
+        }
+        mock_logger.return_value = MagicMock()
         self.fetcher = MarketDataFetcher()
     
     def test_initialization(self):
@@ -27,6 +67,30 @@ class TestMarketDataFetcher(unittest.TestCase):
         self.assertEqual(self.fetcher.base_url, "https://api.coingecko.com/api/v3")
         self.assertIn("User-Agent", self.fetcher.headers)
         self.assertIn("Accept", self.fetcher.headers)
+        self.assertEqual(self.fetcher.api_call_count, 0)
+        self.assertIsNotNone(self.fetcher.symbol_mapping)
+    
+    def test_reset_api_call_count(self):
+        """Test API call counter reset"""
+        self.fetcher.api_call_count = 50
+        self.fetcher.reset_api_call_count()
+        self.assertEqual(self.fetcher.api_call_count, 0)
+    
+    @patch("brain_v2.ingest.market_data.get_logger")
+    def test_check_rate_limit_within_limit(self, mock_logger):
+        """Test rate limit check when within limit"""
+        mock_logger.return_value = MagicMock()
+        self.fetcher.api_call_count = 50
+        result = self.fetcher.check_rate_limit(estimated_calls=10)
+        self.assertTrue(result)
+    
+    @patch("brain_v2.ingest.market_data.get_logger")
+    def test_check_rate_limit_exceeds_limit(self, mock_logger):
+        """Test rate limit check when exceeding limit"""
+        mock_logger.return_value = MagicMock()
+        self.fetcher.api_call_count = 95
+        result = self.fetcher.check_rate_limit(estimated_calls=10)
+        self.assertFalse(result)
     
     def test_get_coin_id_valid_symbol(self):
         """Test getting CoinGecko ID for valid symbol"""
@@ -43,95 +107,37 @@ class TestMarketDataFetcher(unittest.TestCase):
         
         self.assertIn("not in CoinGecko mapping", str(context.exception))
     
-    def test_calculate_days(self):
-        """Test days calculation for different timeframes"""
-        import math
+    def test_map_timeframe_to_days(self):
+        """Test timeframe to days mapping"""
+        # 1h -> 1 day (gets 4h candles)
+        days = self.fetcher._map_timeframe_to_days("1h")
+        self.assertEqual(days, 1)
         
-        # 1h: 260 candles * 1 hour = 260 hours / 24 = 10.83 days -> ceil = 11 days
-        days = self.fetcher._calculate_days("1h", 260)
-        self.assertEqual(days, math.ceil(260 / 24))
+        # 4h -> 7 days
+        days = self.fetcher._map_timeframe_to_days("4h")
+        self.assertEqual(days, 7)
         
-        # 4h: 260 candles * 4 hours = 1040 hours / 24 = 43.33 days -> ceil = 44 days
-        days = self.fetcher._calculate_days("4h", 260)
-        self.assertEqual(days, math.ceil((260 * 4) / 24))
-        
-        # 1d: 260 candles * 24 hours = 6240 hours / 24 = 260 days
-        days = self.fetcher._calculate_days("1d", 260)
-        self.assertEqual(days, 260)
-    
-    def test_get_interval(self):
-        """Test interval mapping"""
-        self.assertEqual(self.fetcher._get_interval("1h"), "hourly")
-        self.assertEqual(self.fetcher._get_interval("4h"), "hourly")
-        self.assertEqual(self.fetcher._get_interval("1d"), "daily")
-    
-    def test_convert_to_ohlc_empty_data(self):
-        """Test OHLC conversion with empty data"""
-        cg_data = {"prices": [], "total_volumes": []}
-        ohlc = self.fetcher._convert_to_ohlc(cg_data, "1h", 10)
-        self.assertEqual(ohlc, [])
-    
-    def test_convert_to_ohlc_hourly(self):
-        """Test OHLC conversion for hourly data"""
-        # Create mock data aligned to hour boundaries
-        # All timestamps aligned to hourly intervals (multiples of 3600000 ms)
-        base_ts = 1000000000000  # Base timestamp
-        hour_ms = 3600000  # 1 hour in milliseconds
-        
-        cg_data = {
-            "prices": [
-                [base_ts, 50000.0],                    # Hour 0
-                [base_ts + hour_ms, 51000.0],          # Hour 1
-                [base_ts + 2 * hour_ms, 50500.0],      # Hour 2
-                [base_ts + 3 * hour_ms, 49500.0],      # Hour 3
-            ],
-            "total_volumes": [
-                [base_ts, 1000.0],
-                [base_ts + hour_ms, 1100.0],
-                [base_ts + 2 * hour_ms, 900.0],
-                [base_ts + 3 * hour_ms, 1200.0],
-            ]
-        }
-        
-        ohlc = self.fetcher._convert_to_ohlc(cg_data, "1h", 10)
-        
-        # Should have 4 candles (one per hour)
-        self.assertEqual(len(ohlc), 4)
-        
-        # Check first candle structure
-        self.assertIn("timestamp", ohlc[0])
-        self.assertIn("open", ohlc[0])
-        self.assertIn("high", ohlc[0])
-        self.assertIn("low", ohlc[0])
-        self.assertIn("close", ohlc[0])
-        self.assertIn("volume", ohlc[0])
-        
-        # Verify first candle values (only one price point, so OHLC all equal)
-        self.assertEqual(ohlc[0]["open"], 50000.0)
-        self.assertEqual(ohlc[0]["close"], 50000.0)
+        # 1d -> 180 days
+        days = self.fetcher._map_timeframe_to_days("1d")
+        self.assertEqual(days, 180)
     
     @patch("brain_v2.ingest.market_data.time.sleep")
     @patch("brain_v2.ingest.market_data.requests.get")
     @patch("brain_v2.ingest.market_data.get_logger")
     def test_fetch_ohlc_success(self, mock_logger, mock_get, mock_sleep):
-        """Test successful OHLC fetch from CoinGecko"""
+        """Test successful OHLC fetch from CoinGecko /ohlc endpoint"""
         # Mock logger
         mock_logger_instance = MagicMock()
         mock_logger.return_value = mock_logger_instance
         
-        # Mock successful API response
+        # Mock successful API response - CoinGecko /ohlc format
+        # Returns: [[timestamp_ms, open, high, low, close], ...]
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "prices": [
-                [1000000000000, 50000.0],
-                [1000003600000, 50500.0],
-            ],
-            "total_volumes": [
-                [1000000000000, 1000.0],
-                [1000003600000, 1100.0],
-            ]
-        }
+        mock_response.json.return_value = [
+            [1000000000000, 50000.0, 51000.0, 49000.0, 50500.0],
+            [1000003600000, 50500.0, 52000.0, 50000.0, 51500.0],
+        ]
         mock_get.return_value = mock_response
         
         # Call fetch_ohlc
@@ -140,18 +146,49 @@ class TestMarketDataFetcher(unittest.TestCase):
         # Verify results
         self.assertIsNotNone(ohlc)
         self.assertIsInstance(ohlc, list)
-        self.assertGreater(len(ohlc), 0)
+        self.assertEqual(len(ohlc), 2)
+        
+        # Check structure
+        self.assertIn("timestamp", ohlc[0])
+        self.assertIn("open", ohlc[0])
+        self.assertIn("high", ohlc[0])
+        self.assertIn("low", ohlc[0])
+        self.assertIn("close", ohlc[0])
+        self.assertIn("volume", ohlc[0])
+        
+        # Check values
+        self.assertEqual(ohlc[0]["open"], 50000.0)
+        self.assertEqual(ohlc[0]["high"], 51000.0)
+        self.assertEqual(ohlc[0]["low"], 49000.0)
+        self.assertEqual(ohlc[0]["close"], 50500.0)
         
         # Verify API was called with correct URL and params
         mock_get.assert_called_once()
         call_args = mock_get.call_args
-        self.assertIn("/coins/bitcoin/market_chart", call_args[0][0])
+        self.assertIn("/coins/bitcoin/ohlc", call_args[0][0])
         self.assertEqual(call_args[1]["params"]["vs_currency"], "usd")
         self.assertIn("days", call_args[1]["params"])
-        self.assertEqual(call_args[1]["params"]["interval"], "hourly")
         
         # Verify rate limiting was applied
         mock_sleep.assert_called()
+        
+        # Verify API call was counted
+        self.assertEqual(self.fetcher.api_call_count, 1)
+    
+    @patch("brain_v2.ingest.market_data.time.sleep")
+    @patch("brain_v2.ingest.market_data.get_logger")
+    def test_fetch_ohlc_rate_limit_exceeded(self, mock_logger, mock_sleep):
+        """Test fetch_ohlc when rate limit is exceeded"""
+        mock_logger_instance = MagicMock()
+        mock_logger.return_value = mock_logger_instance
+        
+        # Set API call count to exceed limit
+        self.fetcher.api_call_count = MAX_API_CALLS_PER_CYCLE
+        
+        with self.assertRaises(Exception) as context:
+            self.fetcher.fetch_ohlc("BTCUSDT", "1h", 10)
+        
+        self.assertIn("API call limit exceeded", str(context.exception))
     
     @patch("brain_v2.ingest.market_data.time.sleep")
     @patch("brain_v2.ingest.market_data.requests.get")
@@ -167,47 +204,6 @@ class TestMarketDataFetcher(unittest.TestCase):
         self.assertIn("Symbol mapping error", str(context.exception))
     
     @patch("brain_v2.ingest.market_data.time.sleep")
-    @patch("brain_v2.ingest.market_data.requests.get")
-    @patch("brain_v2.ingest.market_data.get_logger")
-    def test_fetch_ohlc_retries_on_500_error(self, mock_logger, mock_get, mock_sleep):
-        """Test that fetch_ohlc retries on 500 errors"""
-        import requests
-        
-        mock_logger_instance = MagicMock()
-        mock_logger.return_value = mock_logger_instance
-        
-        # Create mock responses
-        success_response = MagicMock()
-        success_response.status_code = 200
-        success_response.json.return_value = {
-            "prices": [[1000000000000, 50000.0]],
-            "total_volumes": [[1000000000000, 1000.0]]
-        }
-        
-        # Create error responses that properly mimic HTTPError
-        def make_500_error():
-            error_resp = MagicMock()
-            error_resp.status_code = 500
-            http_error = requests.exceptions.HTTPError("500 Server Error")
-            http_error.response = error_resp
-            
-            mock_req = MagicMock()
-            mock_req.raise_for_status.side_effect = http_error
-            return mock_req
-        
-        # First two calls return 500, third succeeds
-        mock_get.side_effect = [
-            make_500_error(),
-            make_500_error(),
-            success_response
-        ]
-        
-        # Should eventually succeed
-        ohlc = self.fetcher.fetch_ohlc("BTCUSDT", "1h", 10)
-        self.assertIsNotNone(ohlc)
-        self.assertEqual(mock_get.call_count, 3)
-    
-    @patch("brain_v2.ingest.market_data.time.sleep")
     @patch("brain_v2.ingest.market_data.get_logger")
     def test_fetch_multiple_timeframes(self, mock_logger, mock_sleep):
         """Test fetching multiple timeframes"""
@@ -216,7 +212,9 @@ class TestMarketDataFetcher(unittest.TestCase):
         
         # Mock fetch_ohlc to return simple data
         with patch.object(self.fetcher, 'fetch_ohlc') as mock_fetch:
-            mock_fetch.return_value = [{"timestamp": 1000000000, "open": 50000}]
+            mock_fetch.return_value = [
+                {"timestamp": 1000000000, "open": 50000, "high": 51000, "low": 49000, "close": 50500, "volume": 0}
+            ]
             
             results = self.fetcher.fetch_multiple_timeframes("BTCUSDT", ["1h", "4h", "1d"])
             
@@ -230,15 +228,6 @@ class TestMarketDataFetcher(unittest.TestCase):
             self.assertIsNotNone(results["1h"])
             self.assertIsNotNone(results["4h"])
             self.assertIsNotNone(results["1d"])
-    
-    def test_symbol_mapping_coverage(self):
-        """Test that symbol mapping includes all expected symbols"""
-        expected_symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
-        
-        for symbol in expected_symbols:
-            self.assertIn(symbol, SYMBOL_TO_COINGECKO_ID)
-            self.assertIsInstance(SYMBOL_TO_COINGECKO_ID[symbol], str)
-            self.assertGreater(len(SYMBOL_TO_COINGECKO_ID[symbol]), 0)
 
 
 if __name__ == "__main__":

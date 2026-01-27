@@ -1,10 +1,14 @@
 """
 Market Data Ingestion Module
 
-Fetches real market data using CoinGecko API.
-No fake data allowed.
+Fetches REAL OHLC data using CoinGecko /ohlc endpoint.
+No fake data allowed. No reconstruction allowed.
+
+Data Quality: NATIVE OHLC from CoinGecko (not derived/approximate)
 """
 
+import json
+import os
 import requests
 import time
 from typing import List, Dict, Optional
@@ -12,136 +16,141 @@ from brain_v2.config.settings import OHLC_LIMIT
 from brain_v2.governance.logger import get_logger
 
 
-# Deterministic symbol mapping: USDT pairs → CoinGecko IDs
-SYMBOL_TO_COINGECKO_ID = {
-    "BTCUSDT": "bitcoin",
-    "ETHUSDT": "ethereum",
-    "BNBUSDT": "binancecoin",
-    "XRPUSDT": "ripple",
-    "ADAUSDT": "cardano",
-    "DOGEUSDT": "dogecoin",
-    "SOLUSDT": "solana",
-    "DOTUSDT": "polkadot",
-    "MATICUSDT": "matic-network",
-    "LINKUSDT": "chainlink",
-    "AVAXUSDT": "avalanche-2",
-    "ATOMUSDT": "cosmos",
-    "LTCUSDT": "litecoin",
-    "UNIUSDT": "uniswap",
-    "ETCUSDT": "ethereum-classic",
-    "XLMUSDT": "stellar",
-    "ALGOUSDT": "algorand",
-    "TRXUSDT": "tron",
-    "VETUSDT": "vechain",
-    "FILUSDT": "filecoin",
-}
+# Rate limiting configuration
+MAX_API_CALLS_PER_CYCLE = 100  # Maximum API calls per analysis cycle
+
+
+def load_symbol_mapping() -> Dict[str, str]:
+    """
+    Load symbol to CoinGecko ID mapping from JSON file.
+    
+    Returns:
+        Dictionary mapping trading symbols to CoinGecko IDs
+    
+    Raises:
+        FileNotFoundError: If mapping file doesn't exist
+        ValueError: If mapping file is invalid
+    """
+    mapping_file = os.path.join(
+        os.path.dirname(__file__),
+        "symbol_mapping.json"
+    )
+    
+    if not os.path.exists(mapping_file):
+        raise FileNotFoundError(
+            f"Symbol mapping file not found: {mapping_file}. "
+            "This file is required for CoinGecko API integration."
+        )
+    
+    try:
+        with open(mapping_file, "r") as f:
+            data = json.load(f)
+        
+        mappings = data.get("mappings", {})
+        if not mappings:
+            raise ValueError("Symbol mapping file contains no mappings")
+        
+        return mappings
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in symbol mapping file: {e}")
+    except Exception as e:
+        raise ValueError(f"Error loading symbol mapping: {e}")
 
 
 class MarketDataFetcher:
-    """Fetches market data from CoinGecko API"""
+    """Fetches NATIVE OHLC data from CoinGecko /ohlc endpoint"""
     
     def __init__(self):
-        """Initialize CoinGecko fetcher"""
+        """Initialize CoinGecko fetcher with native OHLC support"""
         self.base_url = "https://api.coingecko.com/api/v3"
         self.headers = {
             "User-Agent": "YAGATI-Brain/2.0 (Market Analysis Bot)",
             "Accept": "application/json",
         }
+        # Load symbol mapping dynamically
+        self.symbol_mapping = load_symbol_mapping()
+        self.api_call_count = 0  # Track API calls in current cycle
+        
+        logger = get_logger()
+        logger.info(
+            f"MarketDataFetcher initialized with {len(self.symbol_mapping)} symbol mappings",
+            context={"data_quality": "NATIVE_OHLC", "source": "CoinGecko /ohlc endpoint"}
+        )
+    
+    def reset_api_call_count(self):
+        """Reset API call counter for new cycle"""
+        self.api_call_count = 0
+    
+    def check_rate_limit(self, estimated_calls: int = 1) -> bool:
+        """
+        Check if we're within rate limit for this cycle.
+        
+        Args:
+            estimated_calls: Number of calls about to be made
+            
+        Returns:
+            True if within limit, False otherwise
+        """
+        logger = get_logger()
+        
+        if self.api_call_count + estimated_calls > MAX_API_CALLS_PER_CYCLE:
+            logger.warning(
+                f"API call limit exceeded: {self.api_call_count} + {estimated_calls} > {MAX_API_CALLS_PER_CYCLE}",
+                context={"max_calls": MAX_API_CALLS_PER_CYCLE, "current": self.api_call_count}
+            )
+            return False
+        
+        return True
     
     def _get_coin_id(self, symbol: str) -> str:
-        """Get CoinGecko coin ID from trading symbol"""
-        if symbol not in SYMBOL_TO_COINGECKO_ID:
-            raise ValueError(f"Symbol {symbol} not in CoinGecko mapping")
-        return SYMBOL_TO_COINGECKO_ID[symbol]
-    
-    def _calculate_days(self, timeframe: str, limit: int) -> int:
-        """Calculate days parameter for CoinGecko based on timeframe and limit"""
-        import math
-        # Map timeframe to hours
-        tf_hours = {
-            "1h": 1,
-            "4h": 4,
-            "1d": 24,
-        }
-        hours = tf_hours.get(timeframe, 1)
-        # Use ceiling to ensure we get enough data
-        days = math.ceil((limit * hours) / 24)
-        return max(1, days)  # Minimum 1 day
-    
-    def _get_interval(self, timeframe: str) -> str:
-        """Get CoinGecko interval from timeframe"""
-        if timeframe == "1d":
-            return "daily"
-        return "hourly"
-    
-    def _convert_to_ohlc(self, cg_data: dict, timeframe: str, limit: int) -> List[Dict]:
-        """Convert CoinGecko market_chart data to OHLC format"""
-        # Extract prices and timestamps
-        prices = cg_data.get("prices", [])
-        volumes = cg_data.get("total_volumes", [])
+        """
+        Get CoinGecko coin ID from trading symbol.
         
-        if not prices:
-            return []
-        
-        # Group by interval
-        tf_ms = {
-            "1h": 3600000,
-            "4h": 14400000,
-            "1d": 86400000,
-        }
-        interval_ms = tf_ms.get(timeframe, 3600000)
-        
-        # Build OHLC candles
-        candles = []
-        current_interval_start = None
-        interval_prices = []
-        interval_volumes = []
-        
-        for i, (ts, price) in enumerate(prices):
-            interval_start = (ts // interval_ms) * interval_ms
+        Args:
+            symbol: Trading symbol (e.g., "BTCUSDT")
             
-            if current_interval_start is None:
-                current_interval_start = interval_start
+        Returns:
+            CoinGecko coin ID
             
-            if interval_start != current_interval_start:
-                # Close current candle
-                if interval_prices:
-                    candles.append({
-                        "timestamp": current_interval_start // 1000,  # Convert to seconds
-                        "open": interval_prices[0],
-                        "high": max(interval_prices),
-                        "low": min(interval_prices),
-                        "close": interval_prices[-1],
-                        "volume": sum(interval_volumes) if interval_volumes else 0,
-                    })
-                
-                # Start new candle
-                current_interval_start = interval_start
-                interval_prices = [price]
-                # Safely extract volume if available
-                if i < len(volumes) and len(volumes[i]) > 1:
-                    interval_volumes = [volumes[i][1]]
-                else:
-                    interval_volumes = []
-            else:
-                interval_prices.append(price)
-                # Safely extract volume if available
-                if i < len(volumes) and len(volumes[i]) > 1:
-                    interval_volumes.append(volumes[i][1])
+        Raises:
+            ValueError: If symbol not in mapping
+        """
+        if symbol not in self.symbol_mapping:
+            raise ValueError(
+                f"Symbol {symbol} not in CoinGecko mapping. "
+                f"Available symbols: {', '.join(sorted(self.symbol_mapping.keys()))}"
+            )
+        return self.symbol_mapping[symbol]
+    
+    def _map_timeframe_to_days(self, timeframe: str) -> int:
+        """
+        Map timeframe to CoinGecko /ohlc days parameter.
         
-        # Close last candle
-        if interval_prices:
-            candles.append({
-                "timestamp": current_interval_start // 1000,
-                "open": interval_prices[0],
-                "high": max(interval_prices),
-                "low": min(interval_prices),
-                "close": interval_prices[-1],
-                "volume": sum(interval_volumes) if interval_volumes else 0,
-            })
+        CoinGecko /ohlc endpoint supports specific day ranges.
         
-        # Return most recent `limit` candles
-        return candles[-limit:]
+        Args:
+            timeframe: Timeframe string (e.g., "1h", "4h", "1d")
+            
+        Returns:
+            Days parameter for CoinGecko API
+        """
+        # CoinGecko /ohlc endpoint behavior:
+        # - days=1: returns 4-hour candles for last 1-2 days
+        # - days=7-90: returns 4-hour candles
+        # - days>90: returns daily candles
+        
+        if timeframe == "1h":
+            # For 1h data, we need recent 4h candles (closest available)
+            return 1
+        elif timeframe == "4h":
+            # 4h candles available for 1-90 days
+            return 7
+        elif timeframe == "1d":
+            # Daily candles available for days>90
+            return 180
+        else:
+            # Default to 7 days
+            return 7
     
     def fetch_ohlc(
         self, 
@@ -150,7 +159,9 @@ class MarketDataFetcher:
         limit: int = OHLC_LIMIT
     ) -> Optional[List[Dict]]:
         """
-        Fetch OHLC candle data from CoinGecko.
+        Fetch NATIVE OHLC candle data from CoinGecko /ohlc endpoint.
+        
+        DATA QUALITY: NATIVE OHLC (not reconstructed/approximate)
         
         Args:
             symbol: Market symbol (e.g., "BTCUSDT")
@@ -158,12 +169,19 @@ class MarketDataFetcher:
             limit: Number of candles to fetch
             
         Returns:
-            List of OHLC candles or None if error
+            List of NATIVE OHLC candles or None if error
             
         Raises:
             Exception: On API error (to be caught and logged by caller)
         """
         logger = get_logger()
+        
+        # Check rate limit before making call
+        if not self.check_rate_limit(estimated_calls=1):
+            raise Exception(
+                f"API call limit exceeded ({MAX_API_CALLS_PER_CYCLE} calls per cycle). "
+                "Aborting to prevent rate limit issues."
+            )
         
         max_retries = 3
         base_delay = 1  # seconds
@@ -175,17 +193,25 @@ class MarketDataFetcher:
             # Get CoinGecko ID
             coin_id = self._get_coin_id(symbol)
             
-            # Calculate parameters
-            days = self._calculate_days(timeframe, limit)
-            interval = self._get_interval(timeframe)
+            # Calculate days parameter
+            days = self._map_timeframe_to_days(timeframe)
             
-            # Build URL
-            url = f"{self.base_url}/coins/{coin_id}/market_chart"
+            # Build URL - using NATIVE /ohlc endpoint
+            url = f"{self.base_url}/coins/{coin_id}/ohlc"
             params = {
                 "vs_currency": "usd",
                 "days": days,
-                "interval": interval,
             }
+            
+            logger.info(
+                f"Fetching NATIVE OHLC for {symbol} {timeframe} from CoinGecko",
+                context={
+                    "endpoint": "/ohlc",
+                    "data_quality": "NATIVE_OHLC",
+                    "coin_id": coin_id,
+                    "days": days
+                }
+            )
             
             # Retry loop
             for attempt in range(max_retries):
@@ -193,19 +219,45 @@ class MarketDataFetcher:
                     response = requests.get(url, headers=self.headers, params=params, timeout=30)
                     response.raise_for_status()
                     
-                    # Convert to OHLC
-                    cg_data = response.json()
-                    ohlc = self._convert_to_ohlc(cg_data, timeframe, limit)
+                    # Increment API call counter
+                    self.api_call_count += 1
                     
-                    if not ohlc:
+                    # Parse NATIVE OHLC response
+                    # CoinGecko /ohlc returns: [[timestamp_ms, open, high, low, close], ...]
+                    ohlc_raw = response.json()
+                    
+                    if not ohlc_raw:
                         raise Exception(f"No OHLC data returned for {symbol} {timeframe}")
                     
-                    logger.info(f"Fetched {len(ohlc)} candles for {symbol} {timeframe} from CoinGecko")
+                    # Convert to our format
+                    ohlc = []
+                    for candle in ohlc_raw:
+                        if len(candle) >= 5:
+                            ohlc.append({
+                                "timestamp": candle[0] // 1000,  # Convert ms to seconds
+                                "open": float(candle[1]),
+                                "high": float(candle[2]),
+                                "low": float(candle[3]),
+                                "close": float(candle[4]),
+                                "volume": 0,  # /ohlc endpoint doesn't provide volume
+                            })
+                    
+                    # Return most recent `limit` candles
+                    ohlc = ohlc[-limit:]
+                    
+                    logger.info(
+                        f"✓ Fetched {len(ohlc)} NATIVE OHLC candles for {symbol} {timeframe}",
+                        context={
+                            "data_quality": "NATIVE_OHLC",
+                            "source": "CoinGecko /ohlc",
+                            "api_calls_used": self.api_call_count
+                        }
+                    )
                     return ohlc
                     
                 except requests.exceptions.HTTPError as e:
                     status_code = e.response.status_code
-                    source = "CoinGecko"
+                    source = "CoinGecko /ohlc"
                     
                     # Discriminant logging
                     if status_code == 429:
@@ -243,7 +295,7 @@ class MarketDataFetcher:
                         raise Exception(f"HTTP error ({status_code}) from {source} fetching {symbol} {timeframe}: {e}")
                         
                 except requests.exceptions.Timeout as e:
-                    source = "CoinGecko"
+                    source = "CoinGecko /ohlc"
                     logger.warning(
                         f"Timeout: {symbol} {timeframe} (attempt {attempt+1}/{max_retries})",
                         context={"source": source, "error": "timeout"}
@@ -257,7 +309,7 @@ class MarketDataFetcher:
                         raise Exception(f"Timeout from {source} fetching {symbol} {timeframe}: {e}")
                         
                 except requests.exceptions.RequestException as e:
-                    source = "CoinGecko"
+                    source = "CoinGecko /ohlc"
                     logger.warning(
                         f"Network error: {symbol} {timeframe} (attempt {attempt+1}/{max_retries})",
                         context={"source": source, "error": "network"}
@@ -271,15 +323,15 @@ class MarketDataFetcher:
                         raise Exception(f"Network error from {source} fetching {symbol} {timeframe}: {e}")
             
         except ValueError as e:
-            # Symbol not in mapping
+            # Symbol not in mapping - log but don't crash entire cycle
             logger.error(f"Symbol mapping error: {e}", context={"symbol": symbol})
             raise Exception(f"Symbol mapping error: {e}")
         except Exception as e:
             logger.error(
                 f"Unexpected error: {symbol} {timeframe}: {e}",
-                context={"source": "CoinGecko", "error_type": type(e).__name__}
+                context={"source": "CoinGecko /ohlc", "error_type": type(e).__name__}
             )
-            raise Exception(f"Unexpected error from CoinGecko fetching {symbol} {timeframe}: {e}")
+            raise Exception(f"Unexpected error from CoinGecko /ohlc fetching {symbol} {timeframe}: {e}")
     
     def fetch_multiple_timeframes(
         self, 
