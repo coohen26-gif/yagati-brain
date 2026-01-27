@@ -241,3 +241,55 @@ python3 -m brain_v2.universe.build_universe
 
 **Full Documentation**: [docs/universe_builder.md](docs/universe_builder.md)
 
+---
+
+## Bootstrap d'un nouveau chat
+
+Pour démarrer une nouvelle session de discussion ou onboarder sur le projet YAGATI, utilisez la stratégie **Context Pack** qui externalise le contexte de conversation.
+
+### Documentation de Contexte
+
+📋 **Documents à consulter dans cet ordre**:
+
+1. **[YAGATI_CONTEXT_PACK.md](docs/YAGATI_CONTEXT_PACK.md)** - Bootstrap rapide (<120 lignes)
+   - Contexte essentiel pour démarrer immédiatement
+   - Commandes clés et structure du projet
+   - Copier ce document au début de toute nouvelle session
+
+2. **[YAGATI_KERNEL.md](docs/YAGATI_KERNEL.md)** - Source de vérité
+   - Architecture système complète
+   - Modules actifs et configuration
+   - Principes de gouvernance
+
+3. **[YAGATI_STATE.md](docs/YAGATI_STATE.md)** - État actuel (<120 lignes)
+   - Snapshot de l'état actuel du système
+   - Configuration et intégrations
+   - Dernières modifications
+
+4. **[YAGATI_DECISIONS.md](docs/YAGATI_DECISIONS.md)** - Journal des décisions
+   - Historique des décisions architecturales
+   - Rationale et impacts
+   - Référence pour comprendre les choix passés
+
+### Quick Start Nouveau Chat
+
+```bash
+# 1. Copier le Context Pack comme premier message
+cat docs/YAGATI_CONTEXT_PACK.md
+
+# 2. Consulter l'état actuel
+cat docs/YAGATI_STATE.md
+
+# 3. Vérifier les décisions récentes
+cat docs/YAGATI_DECISIONS.md
+```
+
+### Pourquoi Context Pack?
+
+- ✅ **Évite conversations trop lourdes**: Contexte externalisé dans GitHub
+- ✅ **Améliore continuité**: Onboarding rapide sur nouvelles sessions
+- ✅ **Réduit répétition**: Information centralisée et accessible
+- ✅ **Facilite collaboration**: Documentation partagée et à jour
+
+**Pour commencer**: Consultez [docs/YAGATI_CONTEXT_PACK.md](docs/YAGATI_CONTEXT_PACK.md)
+
