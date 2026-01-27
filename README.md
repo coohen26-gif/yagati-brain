@@ -3,28 +3,39 @@ YAGATI - Brain-first trading system
 
 ## Brain Modules
 
-This repository contains two independent brain modules:
+This repository contains two brain modules:
 
-### 1. Brain v1 (Legacy - `brain/`)
-The original event-driven trading brain with scanner v1.1.3-01.
+### ✅ Brain YAGATI v2 (PRODUCTION - `brain_v2/`)
+**Status**: ACTIVE - Use this implementation
 
-**Run**: `python3 brain/brain_loop.py`
-
-### 2. Brain YAGATI v2 (NEW - `brain_v2/`)
-Deterministic decision module (MVP) - fully independent from v1.
+Deterministic decision module (MVP) - fully independent, clean architecture.
 
 **Run**: `python brain_v2/run.py`
 
 📖 **Full documentation**: [brain_v2/README.md](brain_v2/README.md)
 
-Key features of Brain v2:
+Key features:
 - ✅ Deterministic, auditable decisions
 - ✅ Real market data (Supabase API)
-- ✅ **Universe Builder** - Deterministic tradable symbol generation (CoinGecko + Bitget)
+- ✅ **Universe Builder** - Deterministic tradable symbol generation
 - ✅ Setup detection (forming only)
 - ✅ Complete governance & logging
 - ✅ Airtable integration (`brain_logs` + `setups_forming`)
-- ❌ No trading/execution (MVP scope)
+- ✅ No hardcoded credentials (environment variables only)
+
+### ⚠️ Brain v1 (QUARANTINED - `legacy_brain_v1/`)
+**Status**: OBSOLETE - DO NOT USE
+
+The original event-driven trading brain has been quarantined due to:
+- Security violations (hardcoded credentials)
+- Non-deterministic architecture
+- Superseded by Brain v2
+
+**This directory is kept for audit purposes only and will be removed after Brain v2 validation.**
+
+❌ Do not use in production  
+❌ Do not modify  
+✅ Use `brain_v2/` instead
 
 ---
 
@@ -46,13 +57,29 @@ Required environment variables:
 - `AIRTABLE_API_KEY` - Your Airtable API key (for brain heartbeat logging)
 - `AIRTABLE_BASE_ID` - Your Airtable base ID (for brain heartbeat logging)
 
-### Running the Brain Loop
+### Running Brain v2
 
 ```bash
-python3 brain/brain_loop.py
+python brain_v2/run.py
 ```
 
-The brain will:
+For Brain v2 documentation, see [brain_v2/README.md](brain_v2/README.md).
+
+### ⚠️ Legacy Brain v1 (Quarantined)
+
+**Status**: OBSOLETE - Kept for audit purposes only
+
+Brain v1 has been quarantined and is **non-executable**. Any attempt to run it will immediately fail with an error.
+
+- ❌ **DO NOT** attempt to execute
+- ❌ **DO NOT** modify
+- ✅ **Use `brain_v2/` instead** for all production needs
+
+For historical context, see [legacy_brain_v1/README.md](legacy_brain_v1/README.md).
+
+#### Legacy Brain v1 Features (Historical Reference Only)
+
+The legacy Brain v1 previously would:
 1. Load environment variables from `.env`
 2. Initialize Telegram notifications
 3. Send a startup confirmation message
@@ -172,7 +199,7 @@ The scanner detects four types of setups:
 - **Frequency:** Every 15 minutes (same as heartbeat)
 - **Important:** This is NOT signal execution. The scanner only detects and logs patterns.
 
-For more details, see [brain/MARKET_SCANNER.md](brain/MARKET_SCANNER.md).
+For more details, see [legacy_brain_v1/MARKET_SCANNER.md](legacy_brain_v1/MARKET_SCANNER.md) (Legacy documentation).
 
 ---
 

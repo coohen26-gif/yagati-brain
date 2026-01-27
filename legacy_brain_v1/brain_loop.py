@@ -1,3 +1,11 @@
+import sys
+
+# QUARANTINE GUARD - Brain v1 is obsolete and must not be executed
+raise RuntimeError(
+    "OBSOLETE: Brain v1 is quarantined and must not be executed. Use brain_v2 instead."
+)
+
+# The code below this line will never execute due to the quarantine guard above
 import time
 import subprocess
 from datetime import datetime
@@ -16,7 +24,6 @@ except Exception as e:
     print(f"⚠️ Error loading .env file: {e}")
 
 # Import telegram notifier and airtable logger
-import sys
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
@@ -83,8 +90,8 @@ while True:
     except Exception as e:
         print(f"⚠️ Market scan failed (non-blocking): {e}")
 
-    run_step("brain/analyze_signals.py")
-    run_step("brain/send_brain_decisions_v2.py")
+    run_step("legacy_brain_v1/analyze_signals.py")
+    run_step("legacy_brain_v1/send_brain_decisions_v2.py")
 
     print(f"\n⏸️ Pause {LOOP_MINUTES} minutes...\n")
     time.sleep(LOOP_MINUTES * 60)

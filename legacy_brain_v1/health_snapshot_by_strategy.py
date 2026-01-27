@@ -8,7 +8,7 @@ thresholds, or decision logic.
 
 from typing import Any, Dict, List
 
-from brain.health_snapshot import compute_health_snapshot
+from .health_snapshot import compute_health_snapshot
 
 __all__ = ["compute_health_snapshot_by_strategy"]
 

@@ -199,13 +199,13 @@ For each symbol/timeframe combination:
 ## Files Changed
 
 ### New Files
-- `brain/market_scanner.py` - Core scanning logic
-- `brain/setup_logger.py` - Airtable logger for setups
-- `brain/test_market_scanner.py` - Test suite
-- `brain/MARKET_SCANNER.md` - This documentation
+- `legacy_brain_v1/market_scanner.py` - Core scanning logic
+- `legacy_brain_v1/setup_logger.py` - Airtable logger for setups
+- `legacy_brain_v1/test_market_scanner.py` - Test suite
+- `legacy_brain_v1/MARKET_SCANNER.md` - This documentation
 
 ### Modified Files
-- `brain/brain_loop.py` - Added market scan integration
+- `legacy_brain_v1/brain_loop.py` - Added market scan integration
 
 ## Technical Details
 
