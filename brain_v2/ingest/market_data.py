@@ -117,9 +117,6 @@ class MarketDataFetcher:
             except Exception as e:
                 print(f"❌ Unexpected error: {symbol} {timeframe}: {e}")
                 raise Exception(f"Unexpected error fetching {symbol} {timeframe}: {e}")
-        
-        # Should never reach here
-        raise Exception(f"Failed to fetch {symbol} {timeframe} after {max_retries} attempts")
     
     def fetch_multiple_timeframes(
         self, 
