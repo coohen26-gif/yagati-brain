@@ -9,6 +9,7 @@ import requests
 import time
 from typing import List, Dict, Optional
 from brain_v2.config.settings import SUPABASE_URL, SUPABASE_ANON_KEY, OHLC_LIMIT
+from brain_v2.governance.logger import get_logger
 
 
 class MarketDataFetcher:
@@ -44,6 +45,7 @@ class MarketDataFetcher:
         Raises:
             Exception: On API error (to be caught and logged by caller)
         """
+        logger = get_logger()
         url = f"{self.base_url}/functions/v1/market-data/ohlc"
         params = {
             "symbol": symbol,
@@ -54,10 +56,10 @@ class MarketDataFetcher:
         max_retries = 3
         base_delay = 1  # seconds
         
-        # Throttle before request
-        time.sleep(0.5)
-        
         for attempt in range(max_retries):
+            # Throttle before each attempt (including retries)
+            time.sleep(0.5)
+            
             try:
                 response = requests.get(
                     url, 
@@ -70,53 +72,78 @@ class MarketDataFetcher:
                 
             except requests.exceptions.HTTPError as e:
                 status_code = e.response.status_code
+                source = "SUPABASE_EDGE (upstream: CoinGecko)"
                 
                 # Discriminant logging
                 if status_code == 429:
-                    print(f"⚠️ Rate limit hit: {symbol} {timeframe} (attempt {attempt+1}/{max_retries})")
+                    logger.warning(
+                        f"Rate limit hit: {symbol} {timeframe} (attempt {attempt+1}/{max_retries})",
+                        context={"source": source, "status_code": status_code}
+                    )
                     should_retry = True
                 elif 400 <= status_code < 500:
-                    print(f"❌ Client error ({status_code}): {symbol} {timeframe}")
+                    logger.error(
+                        f"Client error ({status_code}): {symbol} {timeframe}",
+                        context={"source": source, "status_code": status_code}
+                    )
                     should_retry = False  # Don't retry 4xx (except 429)
                 elif 500 <= status_code < 600:
-                    print(f"⚠️ Server error ({status_code}): {symbol} {timeframe} (attempt {attempt+1}/{max_retries})")
+                    logger.warning(
+                        f"Server error ({status_code}): {symbol} {timeframe} (attempt {attempt+1}/{max_retries})",
+                        context={"source": source, "status_code": status_code}
+                    )
                     should_retry = True
                 else:
-                    print(f"❌ HTTP error ({status_code}): {symbol} {timeframe}")
+                    logger.error(
+                        f"HTTP error ({status_code}): {symbol} {timeframe}",
+                        context={"source": source, "status_code": status_code}
+                    )
                     should_retry = False
                 
                 # Retry logic
                 if should_retry and attempt < max_retries - 1:
                     wait_time = base_delay * (2 ** attempt)  # Exponential backoff
-                    print(f"   Retrying in {wait_time}s...")
+                    logger.info(f"Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                     continue
                 else:
-                    raise Exception(f"HTTP error ({status_code}) fetching {symbol} {timeframe}: {e}")
+                    raise Exception(f"HTTP error ({status_code}) from {source} fetching {symbol} {timeframe}: {e}")
                     
             except requests.exceptions.Timeout as e:
-                print(f"⚠️ Timeout: {symbol} {timeframe} (attempt {attempt+1}/{max_retries})")
+                source = "SUPABASE_EDGE (upstream: CoinGecko)"
+                logger.warning(
+                    f"Timeout: {symbol} {timeframe} (attempt {attempt+1}/{max_retries})",
+                    context={"source": source, "error": "timeout"}
+                )
                 if attempt < max_retries - 1:
                     wait_time = base_delay * (2 ** attempt)
-                    print(f"   Retrying in {wait_time}s...")
+                    logger.info(f"Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                     continue
                 else:
-                    raise Exception(f"Timeout fetching {symbol} {timeframe}: {e}")
+                    raise Exception(f"Timeout from {source} fetching {symbol} {timeframe}: {e}")
                     
             except requests.exceptions.RequestException as e:
-                print(f"⚠️ Network error: {symbol} {timeframe} (attempt {attempt+1}/{max_retries})")
+                source = "SUPABASE_EDGE (upstream: CoinGecko)"
+                logger.warning(
+                    f"Network error: {symbol} {timeframe} (attempt {attempt+1}/{max_retries})",
+                    context={"source": source, "error": "network"}
+                )
                 if attempt < max_retries - 1:
                     wait_time = base_delay * (2 ** attempt)
-                    print(f"   Retrying in {wait_time}s...")
+                    logger.info(f"Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                     continue
                 else:
-                    raise Exception(f"Network error fetching {symbol} {timeframe}: {e}")
+                    raise Exception(f"Network error from {source} fetching {symbol} {timeframe}: {e}")
                     
             except Exception as e:
-                print(f"❌ Unexpected error: {symbol} {timeframe}: {e}")
-                raise Exception(f"Unexpected error fetching {symbol} {timeframe}: {e}")
+                source = "SUPABASE_EDGE (upstream: CoinGecko)"
+                logger.error(
+                    f"Unexpected error: {symbol} {timeframe}: {e}",
+                    context={"source": source, "error_type": type(e).__name__}
+                )
+                raise Exception(f"Unexpected error from {source} fetching {symbol} {timeframe}: {e}")
     
     def fetch_multiple_timeframes(
         self, 
@@ -133,13 +160,17 @@ class MarketDataFetcher:
         Returns:
             Dict mapping timeframe to OHLC data (or None if error)
         """
+        logger = get_logger()
         results = {}
         for tf in timeframes:
             try:
                 results[tf] = self.fetch_ohlc(symbol, tf)
             except Exception as e:
                 # Log error but continue with other timeframes
-                print(f"⚠️ Error fetching {symbol} {tf}: {e}")
+                logger.error(
+                    f"Error fetching {symbol} {tf}: {e}",
+                    context={"symbol": symbol, "timeframe": tf}
+                )
                 results[tf] = None
         return results
 
@@ -155,9 +186,13 @@ def fetch_market_data(symbol: str, timeframe: str) -> Optional[List[Dict]]:
     Returns:
         OHLC candles or None if error
     """
+    logger = get_logger()
     fetcher = MarketDataFetcher()
     try:
         return fetcher.fetch_ohlc(symbol, timeframe)
     except Exception as e:
-        print(f"⚠️ Market data fetch failed: {e}")
+        logger.error(
+            f"Market data fetch failed: {e}",
+            context={"symbol": symbol, "timeframe": timeframe}
+        )
         return None
