@@ -67,18 +67,19 @@ For Brain v2 documentation, see [brain_v2/README.md](brain_v2/README.md).
 
 ### ⚠️ Legacy Brain v1 (Quarantined)
 
-Brain v1 is quarantined and should NOT be used. If you need to run it for legacy purposes:
+**Status**: OBSOLETE - Kept for audit purposes only
 
-```bash
-# NOT RECOMMENDED - Legacy only
-python3 legacy_brain_v1/brain_loop.py
-```
+Brain v1 has been quarantined and is **non-executable**. Any attempt to run it will immediately fail with an error.
 
-The brain will display a 10-second warning before execution.
+- ❌ **DO NOT** attempt to execute
+- ❌ **DO NOT** modify
+- ✅ **Use `brain_v2/` instead** for all production needs
 
-#### Legacy Brain v1 Features (Historical Reference)
+For historical context, see [legacy_brain_v1/README.md](legacy_brain_v1/README.md).
 
-The legacy Brain v1 will:
+#### Legacy Brain v1 Features (Historical Reference Only)
+
+The legacy Brain v1 previously would:
 1. Load environment variables from `.env`
 2. Initialize Telegram notifications
 3. Send a startup confirmation message
