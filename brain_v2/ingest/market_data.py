@@ -186,9 +186,6 @@ class MarketDataFetcher:
         max_retries = 3
         base_delay = 1  # seconds
         
-        # Rate limiting: 2s between requests (30 calls/min)
-        time.sleep(2.0)
-        
         try:
             # Get CoinGecko ID
             coin_id = self._get_coin_id(symbol)
@@ -215,6 +212,10 @@ class MarketDataFetcher:
             
             # Retry loop
             for attempt in range(max_retries):
+                # Rate limiting: 2s between requests (30 calls/min)
+                # Delay before each API call to respect CoinGecko rate limits
+                time.sleep(2.0)
+                
                 try:
                     response = requests.get(url, headers=self.headers, params=params, timeout=30)
                     response.raise_for_status()
@@ -230,6 +231,8 @@ class MarketDataFetcher:
                         raise Exception(f"No OHLC data returned for {symbol} {timeframe}")
                     
                     # Convert to our format
+                    # NOTE: CoinGecko /ohlc endpoint does NOT provide volume data
+                    # Volume is set to 0 as a placeholder for API compatibility
                     ohlc = []
                     for candle in ohlc_raw:
                         if len(candle) >= 5:
