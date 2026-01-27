@@ -114,8 +114,8 @@ while True:
     except Exception as e:
         print(f"⚠️ Market scan failed (non-blocking): {e}")
 
-    run_step("brain/analyze_signals.py")
-    run_step("brain/send_brain_decisions_v2.py")
+    run_step("legacy_brain_v1/analyze_signals.py")
+    run_step("legacy_brain_v1/send_brain_decisions_v2.py")
 
     print(f"\n⏸️ Pause {LOOP_MINUTES} minutes...\n")
     time.sleep(LOOP_MINUTES * 60)
