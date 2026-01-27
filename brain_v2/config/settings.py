@@ -44,8 +44,8 @@ TABLE_SETUPS_FORMING = "setups_forming"
 # Market Analysis Configuration
 # ============================================================================
 
-# Timeframes to analyze
-TIMEFRAMES = ["1h", "4h", "1d"]
+# Timeframes to analyze (aligned with CoinGecko /ohlc supported intervals)
+TIMEFRAMES = ["4h", "1d"]
 
 # OHLC data limit (number of candles to fetch)
 OHLC_LIMIT = 260
