@@ -6,28 +6,26 @@ Uses CoinGecko API to fetch top cryptocurrencies by market cap.
 """
 
 import json
+import os
+import requests
 import time
 from datetime import datetime
-from pathlib import Path
-from typing import List, Dict, Any
-
-import requests
+from typing import List, Dict
 
 
-# Stablecoins to exclude from the universe
+# Known stablecoins to exclude from universe
 STABLECOINS = {
-    "USDT", "USDC", "BUSD", "DAI", "TUSD", "USDD", "USDP", "GUSD", 
-    "FRAX", "LUSD", "SUSD", "USDN", "USDX", "EURS", "EURT", "USTC", 
-    "UST", "FEI", "HUSD", "CUSD", "OUSD", "ALUSD", "TRIBE", "RSV"
+    "USDT", "USDC", "BUSD", "DAI", "TUSD", "USDD", "USDP", "GUSD", "FRAX",
+    "LUSD", "FEI", "TRIBE", "USTC", "UST", "HUSD", "sUSD", "EURS", "EURT",
+    "CUSD", "XSGD", "ZUSD", "DUSD", "OUSD", "MIM"
 }
 
-
-def fetch_coingecko_top_coins(limit: int = 100) -> List[Dict[str, Any]]:
+def fetch_coingecko_top_coins(limit: int = 100) -> List[Dict]:
     """
-    Fetch top cryptocurrencies by market cap from CoinGecko API.
+    Fetch top cryptocurrencies by market cap from CoinGecko.
     
     Args:
-        limit: Number of coins to fetch (default: 100)
+        limit: Number of top coins to fetch (default: 100)
     
     Returns:
         List of coin data dictionaries
@@ -43,72 +41,124 @@ def fetch_coingecko_top_coins(limit: int = 100) -> List[Dict[str, Any]]:
     
     retries = 3
     delay = 5
-    timeout = 30
     
     for attempt in range(retries):
         try:
-            response = requests.get(url, params=params, timeout=timeout)
+            print(f"Fetching top {limit} coins from CoinGecko...")
+            response = requests.get(url, params=params, timeout=30)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            print(f"✓ Successfully fetched {len(data)} coins from CoinGecko")
+            return data
         except requests.exceptions.RequestException as e:
             if attempt < retries - 1:
-                print(f"  Retry {attempt + 1}/{retries - 1} after error: {e}")
-                time.sleep(delay * (2 ** attempt))  # Exponential backoff
+                wait_time = delay * (2 ** attempt)
+                print(f"✗ Request failed: {e}")
+                print(f"  Retrying in {wait_time} seconds... (attempt {attempt + 1}/{retries})")
+                time.sleep(wait_time)
             else:
+                print(f"✗ Failed after {retries} attempts")
                 raise
 
 
-def build_universe() -> Dict[str, Any]:
+def filter_stablecoins(coins: List[Dict]) -> List[str]:
     """
-    Build the tradable universe from CoinGecko data.
+    Filter out stablecoins and return list of symbols.
+    
+    Args:
+        coins: List of coin data from CoinGecko
     
     Returns:
-        Dictionary with universe metadata and symbols
+        List of filtered symbols (uppercase)
     """
-    print("Fetching top 100 cryptocurrencies from CoinGecko...")
-    coins = fetch_coingecko_top_coins(limit=100)
+    filtered = []
+    excluded = []
     
-    print(f"Fetched {len(coins)} coins from CoinGecko")
-    
-    # Filter out stablecoins and generate USDT pairs
-    symbols = []
     for coin in coins:
-        symbol = coin["symbol"].upper()
-        if symbol not in STABLECOINS:
-            usdt_pair = f"{symbol}USDT"
-            symbols.append(usdt_pair)
+        symbol = coin.get("symbol", "").upper()
+        if symbol in STABLECOINS:
+            excluded.append(symbol)
+        else:
+            filtered.append(symbol)
     
-    print(f"Filtered to {len(symbols)} trading pairs (excluded {len(coins) - len(symbols)} stablecoins)")
+    print(f"✓ Filtered out {len(excluded)} stablecoins: {', '.join(sorted(excluded))}")
+    print(f"✓ Kept {len(filtered)} trading symbols")
     
-    # Build universe structure
-    universe = {
+    return filtered
+
+def generate_usdt_pairs(symbols: List[str]) -> List[str]:
+    """
+    Generate USDT trading pairs from symbol list.
+    
+    Args:
+        symbols: List of base symbols
+    
+    Returns:
+        List of USDT trading pairs (e.g., BTCUSDT, ETHUSDT)
+    """
+    pairs = [f"{symbol}USDT" for symbol in symbols]
+    print(f"✓ Generated {len(pairs)} USDT trading pairs")
+    return pairs
+
+def save_universe(pairs: List[str], output_path: str) -> None:
+    """
+    Save universe to JSON file.
+    
+    Args:
+        pairs: List of trading pairs
+        output_path: Path to output JSON file
+    """
+    universe_data = {
         "version": "1.0",
         "source": "coingecko",
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "symbols": symbols
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "count": len(pairs),
+        "symbols": sorted(pairs)
     }
     
-    return universe
-
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    with open(output_path, "w") as f:
+        json.dump(universe_data, f, indent=2)
+    
+    print(f"✓ Universe saved to {output_path}")
 
 def main():
     """Main entry point for universe builder"""
-    universe = build_universe()
+    print("=" * 60)
+    print("YAGATI Brain V2 - Universe Builder")
+    print("=" * 60)
     
-    # Save to JSON file
-    output_path = Path(__file__).parent / "universe.json"
-    with open(output_path, "w") as f:
-        json.dump(universe, f, indent=2)
-    
-    print(f"\n✅ Universe saved to: {output_path}")
-    print(f"   Total symbols: {len(universe['symbols'])}")
-    print(f"   Version: {universe['version']}")
-    print(f"   Source: {universe['source']}")
-    print(f"\nFirst 10 symbols:")
-    for symbol in universe['symbols'][:10]:
-        print(f"  - {symbol}")
-    if len(universe['symbols']) > 10:
-        print(f"  ... and {len(universe['symbols']) - 10} more")
+    try:
+        # Fetch top coins from CoinGecko
+        coins = fetch_coingecko_top_coins(limit=100)
+        
+        # Filter out stablecoins
+        symbols = filter_stablecoins(coins)
+        
+        # Generate USDT pairs
+        pairs = generate_usdt_pairs(symbols)
+        
+        # Save to universe.json
+        output_path = os.path.join(
+            os.path.dirname(__file__),
+            "universe.json"
+        )
+        save_universe(pairs, output_path)
+        
+        print("=" * 60)
+        print(f"✓ Universe build complete!")
+        print(f"  Total symbols: {len(pairs)}")
+        print(f"  First 10: {', '.join(pairs[:10])}")
+        if len(pairs) > 10:
+            print(f"  ... and {len(pairs) - 10} more")
+        print("=" * 60)
+        
+    except Exception as e:
+        print("=" * 60)
+        print(f"✗ Universe build failed: {e}")
+        print("=" * 60)
+        raise
 
 
 if __name__ == "__main__":
