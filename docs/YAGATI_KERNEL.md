@@ -7,7 +7,7 @@
 
 **YAGATI** = Brain-first trading system
 
-Objectif : système de trading algorithmique basé sur l'analyse de marchés crypto, axé sur la gouvernance, la déterminisme et le contrôle du risque.
+Objectif : système de trading algorithmique basé sur l'analyse de marchés crypto, axé sur la gouvernance, le déterminisme et le contrôle du risque.
 
 ---
 
