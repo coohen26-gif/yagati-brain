@@ -37,19 +37,34 @@ class TestMarketDataFetcher(unittest.TestCase):
     """Test MarketDataFetcher class"""
     
     @patch("brain_v2.ingest.market_data.get_logger")
+    @patch.dict(os.environ, {}, clear=True)
     def setUp(self, mock_logger):
         """Set up test fixtures"""
         mock_logger.return_value = MagicMock()
         self.fetcher = MarketDataFetcher()
     
+    @patch.dict(os.environ, {}, clear=True)
     def test_initialization(self):
-        """Test fetcher initialization"""
+        """Test fetcher initialization without API key (free tier)"""
         self.assertEqual(self.fetcher.base_url, "https://api.coingecko.com/api/v3")
         self.assertIn("User-Agent", self.fetcher.headers)
         self.assertIn("Accept", self.fetcher.headers)
         self.assertEqual(self.fetcher.api_call_count, 0)
         self.assertIsNotNone(self.fetcher.active_symbols)
         self.assertGreater(len(self.fetcher.active_symbols), 0)
+    
+    @patch("brain_v2.ingest.market_data.get_logger")
+    @patch.dict(os.environ, {"COINGECKO_API_KEY": "test_premium_key"})
+    def test_initialization_with_premium_key(self, mock_logger):
+        """Test fetcher initialization with API key (premium tier)"""
+        mock_logger.return_value = MagicMock()
+        fetcher = MarketDataFetcher()
+        self.assertEqual(fetcher.base_url, "https://pro-api.coingecko.com/api/v3")
+        self.assertIn("User-Agent", fetcher.headers)
+        self.assertIn("Accept", fetcher.headers)
+        self.assertEqual(fetcher.api_call_count, 0)
+        self.assertIsNotNone(fetcher.active_symbols)
+        self.assertGreater(len(fetcher.active_symbols), 0)
     
     def test_reset_api_call_count(self):
         """Test API call counter reset"""
