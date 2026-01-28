@@ -78,6 +78,7 @@ class MarketDataFetcher:
         self.headers = {
             "User-Agent": "YAGATI-Brain/2.0 (Market Analysis Bot)",
             "Accept": "application/json",
+            "x-cg-pro-api-key": os.getenv("COINGECKO_API_KEY"),
         }
         # Get active symbols from universe configuration
         self.active_symbols = get_active_symbols()
