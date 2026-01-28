@@ -49,6 +49,8 @@ class TestMarketDataFetcher(unittest.TestCase):
         self.assertEqual(self.fetcher.base_url, "https://api.coingecko.com/api/v3")
         self.assertIn("User-Agent", self.fetcher.headers)
         self.assertIn("Accept", self.fetcher.headers)
+        # API key header should not be present for free tier
+        self.assertNotIn("x-cg-pro-api-key", self.fetcher.headers)
         self.assertEqual(self.fetcher.api_call_count, 0)
         self.assertIsNotNone(self.fetcher.active_symbols)
         self.assertGreater(len(self.fetcher.active_symbols), 0)
@@ -62,6 +64,9 @@ class TestMarketDataFetcher(unittest.TestCase):
         self.assertEqual(fetcher.base_url, "https://pro-api.coingecko.com/api/v3")
         self.assertIn("User-Agent", fetcher.headers)
         self.assertIn("Accept", fetcher.headers)
+        # API key header should be present and set correctly for premium tier
+        self.assertIn("x-cg-pro-api-key", fetcher.headers)
+        self.assertEqual(fetcher.headers["x-cg-pro-api-key"], "test_premium_key")
         self.assertEqual(fetcher.api_call_count, 0)
         self.assertIsNotNone(fetcher.active_symbols)
         self.assertGreater(len(fetcher.active_symbols), 0)

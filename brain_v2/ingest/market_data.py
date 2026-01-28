@@ -75,15 +75,19 @@ class MarketDataFetcher:
     def __init__(self):
         """Initialize CoinGecko fetcher with native OHLC support"""
         # Use Premium domain if API key is present
-        if os.getenv("COINGECKO_API_KEY"):
+        api_key = os.getenv("COINGECKO_API_KEY")
+        if api_key:
             self.base_url = "https://pro-api.coingecko.com/api/v3"
         else:
             self.base_url = "https://api.coingecko.com/api/v3"
+        
         self.headers = {
             "User-Agent": "YAGATI-Brain/2.0 (Market Analysis Bot)",
             "Accept": "application/json",
-            "x-cg-pro-api-key": os.getenv("COINGECKO_API_KEY"),
         }
+        # Only add API key header if key is present
+        if api_key:
+            self.headers["x-cg-pro-api-key"] = api_key
         # Get active symbols from universe configuration
         self.active_symbols = get_active_symbols()
         self.api_call_count = 0  # Track API calls in current cycle
