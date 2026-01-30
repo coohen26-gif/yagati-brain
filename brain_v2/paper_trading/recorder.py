@@ -209,6 +209,15 @@ class AirtableRecorder:
             "equity_at_open": trade_data["equity_at_open"],
             "opened_at": trade_data["opened_at"],
             "setup_id": trade_data.get("setup_id", ""),
+            # Water marks for MFE/MAE tracking
+            "high_water_mark_price": trade_data.get("high_water_mark_price", trade_data["entry_price"]),
+            "low_water_mark_price": trade_data.get("low_water_mark_price", trade_data["entry_price"]),
+            # Contextual snapshot at entry
+            "entry_context_volatility": trade_data.get("entry_context_volatility"),
+            "entry_context_trend": trade_data.get("entry_context_trend"),
+            "entry_context_rsi": trade_data.get("entry_context_rsi"),
+            "entry_market_regime": trade_data.get("entry_market_regime"),
+            "entry_snapshot_version": trade_data.get("entry_snapshot_version", "v1.0"),
         }
         return self._write_record(TABLE_PAPER_OPEN_TRADES, fields)
     
@@ -216,24 +225,55 @@ class AirtableRecorder:
         """Delete an open trade (after closing)"""
         return self._delete_record(TABLE_PAPER_OPEN_TRADES, record_id)
     
+    def update_water_marks(self, record_id: str, high_water_mark: float, low_water_mark: float) -> bool:
+        """
+        Update water marks for an open trade.
+        
+        Args:
+            record_id: Record ID to update
+            high_water_mark: High water mark price
+            low_water_mark: Low water mark price
+            
+        Returns:
+            True if successful
+        """
+        fields = {
+            "high_water_mark_price": high_water_mark,
+            "low_water_mark_price": low_water_mark,
+        }
+        return self._update_record(TABLE_PAPER_OPEN_TRADES, record_id, fields)
+    
     def save_closed_trade(self, trade_data: Dict) -> Optional[Dict]:
         """Save a closed trade to history"""
         fields = {
+            # Identity block
             "symbol": trade_data["symbol"],
             "direction": trade_data["direction"],
+            "timeframe": trade_data.get("timeframe", ""),
+            "opened_at": trade_data["opened_at"],
+            "closed_at": trade_data["closed_at"],
+            "duration_minutes": trade_data.get("duration_minutes", 0),
+            # Performance block
             "entry_price": trade_data["entry_price"],
+            "exit_price": trade_data["exit_price"],
             "position_size": trade_data["position_size"],
             "stop_loss": trade_data["stop_loss"],
             "take_profit": trade_data["take_profit"],
             "risk_amount": trade_data["risk_amount"],
             "equity_at_open": trade_data["equity_at_open"],
-            "opened_at": trade_data["opened_at"],
-            "setup_id": trade_data.get("setup_id", ""),
-            "exit_price": trade_data["exit_price"],
-            "closed_at": trade_data["closed_at"],
             "pnl": trade_data["pnl"],
             "pnl_percent": trade_data["pnl_percent"],
+            "pnl_usdt": trade_data.get("pnl_usdt", trade_data["pnl"]),  # Alias for clarity in Airtable UI
+            "mfe_percent": trade_data.get("mfe_percent", 0),
+            "mae_percent": trade_data.get("mae_percent", 0),
             "exit_reason": trade_data["exit_reason"],
+            "setup_id": trade_data.get("setup_id", ""),
+            # Contextual snapshot block (copied from entry)
+            "entry_context_volatility": trade_data.get("entry_context_volatility"),
+            "entry_context_trend": trade_data.get("entry_context_trend"),
+            "entry_context_rsi": trade_data.get("entry_context_rsi"),
+            "entry_market_regime": trade_data.get("entry_market_regime"),
+            "entry_snapshot_version": trade_data.get("entry_snapshot_version", "v1.0"),
         }
         return self._write_record(TABLE_PAPER_CLOSED_TRADES, fields)
     

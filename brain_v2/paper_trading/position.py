@@ -220,3 +220,90 @@ class PositionCalculator:
         except Exception as e:
             print(f"⚠️ Paper Trading: Error calculating PnL: {e}")
             return {"pnl": 0, "pnl_percent": 0}
+    
+    def calculate_mfe_mae(
+        self,
+        entry_price: float,
+        high_water_mark: float,
+        low_water_mark: float,
+        direction: str
+    ) -> Dict:
+        """
+        Calculate Maximum Favorable Excursion (MFE) and Maximum Adverse Excursion (MAE).
+        
+        Args:
+            entry_price: Entry price
+            high_water_mark: Highest price reached during trade
+            low_water_mark: Lowest price reached during trade
+            direction: LONG or SHORT
+            
+        Returns:
+            Dictionary with mfe_percent and mae_percent
+        """
+        try:
+            if entry_price <= 0:
+                return {"mfe_percent": 0, "mae_percent": 0}
+            
+            if direction == 'LONG':
+                # For LONG trades:
+                # MFE = highest point reached (favorable)
+                # MAE = lowest point reached (adverse)
+                mfe_percent = ((high_water_mark - entry_price) / entry_price) * 100
+                mae_percent = ((low_water_mark - entry_price) / entry_price) * 100
+            else:  # SHORT
+                # For SHORT trades:
+                # MFE = lowest point reached (favorable)
+                # MAE = highest point reached (adverse)
+                mfe_percent = ((entry_price - low_water_mark) / entry_price) * 100
+                mae_percent = ((entry_price - high_water_mark) / entry_price) * 100
+            
+            return {
+                "mfe_percent": mfe_percent,
+                "mae_percent": mae_percent
+            }
+            
+        except Exception as e:
+            print(f"⚠️ Paper Trading: Error calculating MFE/MAE: {e}")
+            return {"mfe_percent": 0, "mae_percent": 0}
+    
+    def update_water_marks(
+        self,
+        current_price: float,
+        high_water_mark: float,
+        low_water_mark: float,
+        direction: str
+    ) -> Dict:
+        """
+        Update water marks based on current price.
+        
+        Args:
+            current_price: Current market price
+            high_water_mark: Current high water mark
+            low_water_mark: Current low water mark
+            direction: LONG or SHORT
+            
+        Returns:
+            Dictionary with updated high_water_mark and low_water_mark
+        """
+        try:
+            new_high = high_water_mark
+            new_low = low_water_mark
+            
+            if direction == 'LONG':
+                new_high = max(high_water_mark, current_price)
+                new_low = min(low_water_mark, current_price)
+            else:  # SHORT
+                new_low = min(low_water_mark, current_price)
+                new_high = max(high_water_mark, current_price)
+            
+            return {
+                "high_water_mark": new_high,
+                "low_water_mark": new_low
+            }
+            
+        except Exception as e:
+            print(f"⚠️ Paper Trading: Error updating water marks: {e}")
+            return {
+                "high_water_mark": high_water_mark,
+                "low_water_mark": low_water_mark
+            }

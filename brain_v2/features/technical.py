@@ -6,6 +6,8 @@ Deterministic computations for market analysis:
 - Moving averages
 - Risk/Reward approximations
 - Trend strength
+- RSI (Relative Strength Index)
+- Market regime detection (BULL/BEAR/SIDEWAYS)
 
 All calculations are deterministic and reproducible.
 """
@@ -241,6 +243,89 @@ def calculate_risk_reward_proxy(candles: List[Dict]) -> Optional[Dict]:
     }
 
 
+def calculate_rsi(candles: List[Dict], period: int = 14) -> Optional[float]:
+    """
+    Calculate Relative Strength Index (RSI) using smoothed averages.
+    
+    Args:
+        candles: OHLC candles
+        period: Period for RSI calculation (default: 14)
+        
+    Returns:
+        RSI value (0-100) or None if insufficient data
+    """
+    closes = extract_closes(candles)
+    if len(closes) < period + 1:
+        return None
+    
+    # Calculate price changes
+    changes = []
+    for i in range(1, len(closes)):
+        changes.append(closes[i] - closes[i-1])
+    
+    # Separate gains and losses
+    gains = [max(0, change) for change in changes]
+    losses = [abs(min(0, change)) for change in changes]
+    
+    # Calculate initial average gain and loss (simple average for first period)
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    
+    # Apply smoothing for remaining periods (Wilder's smoothing method)
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+    
+    if avg_loss == 0:
+        return 100.0  # No losses means RSI is at maximum
+    
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    
+    return rsi
+
+
+def determine_market_regime(candles: List[Dict]) -> Optional[str]:
+    """
+    Determine market regime based on trend and volatility.
+    
+    Uses price distance from 200-period MA to classify regime:
+    - BULL: Price > 2% above MA (sustained uptrend)
+    - BEAR: Price > 2% below MA (sustained downtrend)
+    - SIDEWAYS: Price within ±2% of MA (range-bound)
+    
+    Note: 2% threshold is chosen as a balance between sensitivity and noise.
+    May be adjusted based on asset volatility in future versions.
+    
+    Args:
+        candles: OHLC candles
+        
+    Returns:
+        "BULL", "BEAR", or "SIDEWAYS"
+    """
+    if len(candles) < MA_TREND:
+        return None
+    
+    closes = extract_closes(candles)
+    ma_trend = simple_moving_average(closes, MA_TREND)
+    
+    if ma_trend is None:
+        return None
+    
+    last_close = closes[-1]
+    
+    # Check price position relative to trend MA
+    distance = ((last_close - ma_trend) / ma_trend) * 100
+    
+    # Determine regime based on distance (2% threshold)
+    if distance > 2.0:
+        return "BULL"
+    elif distance < -2.0:
+        return "BEAR"
+    else:
+        return "SIDEWAYS"
+
+
 def compute_features(candles: List[Dict]) -> Dict:
     """
     Compute all technical features for a set of candles.
@@ -266,6 +351,8 @@ def compute_features(candles: List[Dict]) -> Dict:
         "ma_distance_trend": calculate_ma_distance(candles, MA_TREND),
         "trend_strength": calculate_trend_strength(candles),
         "risk_reward": calculate_risk_reward_proxy(candles),
+        "rsi": calculate_rsi(candles),
+        "market_regime": determine_market_regime(candles),
     }
     
     return features
