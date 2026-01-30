@@ -2,6 +2,22 @@
 
 A completely isolated paper trading engine for Brain YAGATI v2. This module operates independently from the main trading flow and manages a virtual trading account.
 
+## ⚠️ Activation
+
+The paper trading engine is **disabled by default** for safety. To enable it:
+
+```bash
+# In your .env file
+PAPER_TRADING_ENABLED=true
+```
+
+Or via environment variable:
+```bash
+export PAPER_TRADING_ENABLED=true
+```
+
+**Default behavior**: If not set or set to anything other than "true", paper trading remains **disabled**.
+
 ## Architecture
 
 ```
@@ -34,18 +50,45 @@ brain_v2/paper_trading/
 
 ## Usage
 
-The paper trading engine is automatically called at the end of each analysis cycle in `run.py`:
+### Enabling Paper Trading
+
+1. Set the environment variable:
+   ```bash
+   export PAPER_TRADING_ENABLED=true
+   ```
+
+2. Or add to your `.env` file:
+   ```
+   PAPER_TRADING_ENABLED=true
+   ```
+
+3. Run the brain normally:
+   ```bash
+   python brain_v2/run.py
+   ```
+
+### Integration in Main Flow
+
+The paper trading engine is **optionally** called at the end of each analysis cycle in `run.py`:
 
 ```python
-from brain_v2.paper_trading.engine import PaperTradingEngine
+from brain_v2.config.settings import PAPER_TRADING_ENABLED
 
 # At the end of analysis cycle
-try:
-    paper_engine = PaperTradingEngine()
-    paper_engine.run_cycle()
-except Exception as e:
-    logger.error(f"Paper trading error (non-blocking): {e}")
+if PAPER_TRADING_ENABLED:
+    try:
+        from brain_v2.paper_trading.engine import PaperTradingEngine
+        paper_engine = PaperTradingEngine()
+        paper_engine.run_cycle()
+    except Exception as e:
+        # Paper trading errors NEVER block the main flow
+        logger.error(f"Paper trading error (non-blocking): {e}")
+        # Main flow continues normally
+else:
+    logger.info("Paper trading disabled")
 ```
+
+**Important**: Paper trading is wrapped in try/except to ensure main flow **always continues** even if errors occur.
 
 ## Components
 
