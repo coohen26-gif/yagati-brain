@@ -263,7 +263,7 @@ class AirtableRecorder:
             "equity_at_open": trade_data["equity_at_open"],
             "pnl": trade_data["pnl"],
             "pnl_percent": trade_data["pnl_percent"],
-            "pnl_usdt": trade_data.get("pnl_usdt", trade_data["pnl"]),  # Alias for clarity
+            "pnl_usdt": trade_data.get("pnl_usdt", trade_data["pnl"]),  # Alias for clarity in Airtable UI
             "mfe_percent": trade_data.get("mfe_percent", 0),
             "mae_percent": trade_data.get("mae_percent", 0),
             "exit_reason": trade_data["exit_reason"],

@@ -6,6 +6,8 @@ Deterministic computations for market analysis:
 - Moving averages
 - Risk/Reward approximations
 - Trend strength
+- RSI (Relative Strength Index)
+- Market regime detection (BULL/BEAR/SIDEWAYS)
 
 All calculations are deterministic and reproducible.
 """
@@ -243,7 +245,7 @@ def calculate_risk_reward_proxy(candles: List[Dict]) -> Optional[Dict]:
 
 def calculate_rsi(candles: List[Dict], period: int = 14) -> Optional[float]:
     """
-    Calculate Relative Strength Index (RSI).
+    Calculate Relative Strength Index (RSI) using smoothed averages.
     
     Args:
         candles: OHLC candles
@@ -265,9 +267,14 @@ def calculate_rsi(candles: List[Dict], period: int = 14) -> Optional[float]:
     gains = [max(0, change) for change in changes]
     losses = [abs(min(0, change)) for change in changes]
     
-    # Calculate average gain and loss
-    avg_gain = sum(gains[-period:]) / period
-    avg_loss = sum(losses[-period:]) / period
+    # Calculate initial average gain and loss (simple average for first period)
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    
+    # Apply smoothing for remaining periods (Wilder's smoothing method)
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
     
     if avg_loss == 0:
         return 100.0  # No losses means RSI is at maximum
@@ -281,6 +288,14 @@ def calculate_rsi(candles: List[Dict], period: int = 14) -> Optional[float]:
 def determine_market_regime(candles: List[Dict]) -> Optional[str]:
     """
     Determine market regime based on trend and volatility.
+    
+    Uses price distance from 200-period MA to classify regime:
+    - BULL: Price > 2% above MA (sustained uptrend)
+    - BEAR: Price > 2% below MA (sustained downtrend)
+    - SIDEWAYS: Price within ±2% of MA (range-bound)
+    
+    Note: 2% threshold is chosen as a balance between sensitivity and noise.
+    May be adjusted based on asset volatility in future versions.
     
     Args:
         candles: OHLC candles
@@ -302,7 +317,7 @@ def determine_market_regime(candles: List[Dict]) -> Optional[str]:
     # Check price position relative to trend MA
     distance = ((last_close - ma_trend) / ma_trend) * 100
     
-    # Determine regime based on distance
+    # Determine regime based on distance (2% threshold)
     if distance > 2.0:
         return "BULL"
     elif distance < -2.0:

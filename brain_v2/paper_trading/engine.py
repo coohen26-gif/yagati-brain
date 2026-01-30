@@ -377,7 +377,10 @@ class PaperTradingEngine:
                 print(f"   Size: {trade_data['position_size']:.4f}")
                 print(f"   SL: {trade_data['stop_loss']:.2f} | TP: {trade_data['take_profit']:.2f}")
                 print(f"   Risk: {trade_data['risk_amount']:.2f} USDT ({self.calculator.risk_percent * 100}%)")
-                print(f"   Context: Vol={entry_context_volatility:.2f}% | RSI={entry_context_rsi:.1f} | Regime={entry_market_regime}" if features else "   Context: Not available")
+                if features and entry_context_volatility is not None:
+                    print(f"   Context: Vol={entry_context_volatility:.2f}% | RSI={entry_context_rsi:.1f} | Regime={entry_market_regime}")
+                else:
+                    print("   Context: Not available")
             else:
                 print(f"❌ Paper Trading: Failed to save trade")
                 
