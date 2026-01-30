@@ -166,6 +166,15 @@ def run_analysis_cycle(cycle_num: int = 1):
     print(f"Decisions FORMING: {stats['decisions_forming']}")
     print(f"Decisions REJECTED: {stats['decisions_rejected']}")
     print("="*60 + "\n")
+    
+    # Paper trading (isolated, non-blocking)
+    try:
+        from brain_v2.paper_trading.engine import PaperTradingEngine
+        paper_engine = PaperTradingEngine()
+        paper_engine.run_cycle()
+    except Exception as e:
+        logger.log_error_explicit(e, "paper_trading")
+        # Don't interrupt the main flow
 
 
 def main():
