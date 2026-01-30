@@ -78,8 +78,8 @@ class PaperTradingEngine:
             symbol = fields.get('symbol')
             entry_price = float(fields.get('entry_price', 0))
             
-            # Validate symbol exists and is not empty
-            if not symbol:
+            # Validate symbol exists and is not empty/whitespace
+            if not symbol or not symbol.strip():
                 return False
             
             # Validate entry_price is greater than 0
@@ -90,12 +90,24 @@ class PaperTradingEngine:
         except Exception:
             return False
     
+    def _get_valid_open_trades(self) -> List[Dict]:
+        """
+        Get all valid open trades (filtering out invalid/placeholder trades).
+        
+        Returns:
+            List of valid trade records
+        """
+        try:
+            open_trades = self.recorder.get_open_trades()
+            return [trade for trade in open_trades if self._is_valid_trade(trade)]
+        except Exception as e:
+            print(f"⚠️ Paper Trading: Error getting valid trades: {e}")
+            return []
+    
     def _has_open_trades(self) -> bool:
         """Check if there are any valid open trades"""
         try:
-            open_trades = self.recorder.get_open_trades()
-            # Filter out invalid trades
-            valid_trades = [trade for trade in open_trades if self._is_valid_trade(trade)]
+            valid_trades = self._get_valid_open_trades()
             return len(valid_trades) > 0
         except Exception as e:
             print(f"⚠️ Paper Trading: Error checking open trades: {e}")
@@ -104,10 +116,7 @@ class PaperTradingEngine:
     def _manage_open_trades(self):
         """Check and manage open trades for SL/TP hits"""
         try:
-            open_trades = self.recorder.get_open_trades()
-            
-            # Filter out invalid trades
-            valid_trades = [trade for trade in open_trades if self._is_valid_trade(trade)]
+            valid_trades = self._get_valid_open_trades()
             
             if not valid_trades:
                 print("ℹ️  Paper Trading: No open trades")
