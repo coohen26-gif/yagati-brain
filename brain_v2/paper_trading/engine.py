@@ -63,11 +63,40 @@ class PaperTradingEngine:
             print(f"⚠️ Paper Trading: Error in cycle: {e}")
             # Don't raise - keep it isolated
     
+    def _is_valid_trade(self, trade_record: Dict) -> bool:
+        """
+        Check if a trade record has valid data.
+        
+        Args:
+            trade_record: Trade record from Airtable
+            
+        Returns:
+            True if trade has valid symbol and entry_price > 0
+        """
+        try:
+            fields = trade_record.get('fields', {})
+            symbol = fields.get('symbol')
+            entry_price = float(fields.get('entry_price', 0))
+            
+            # Validate symbol exists and is not empty
+            if not symbol:
+                return False
+            
+            # Validate entry_price is greater than 0
+            if entry_price <= 0:
+                return False
+            
+            return True
+        except Exception:
+            return False
+    
     def _has_open_trades(self) -> bool:
-        """Check if there are any open trades"""
+        """Check if there are any valid open trades"""
         try:
             open_trades = self.recorder.get_open_trades()
-            return len(open_trades) > 0
+            # Filter out invalid trades
+            valid_trades = [trade for trade in open_trades if self._is_valid_trade(trade)]
+            return len(valid_trades) > 0
         except Exception as e:
             print(f"⚠️ Paper Trading: Error checking open trades: {e}")
             return False
@@ -77,13 +106,16 @@ class PaperTradingEngine:
         try:
             open_trades = self.recorder.get_open_trades()
             
-            if not open_trades:
+            # Filter out invalid trades
+            valid_trades = [trade for trade in open_trades if self._is_valid_trade(trade)]
+            
+            if not valid_trades:
                 print("ℹ️  Paper Trading: No open trades")
                 return
             
-            print(f"📈 Paper Trading: Monitoring {len(open_trades)} open trade(s)")
+            print(f"📈 Paper Trading: Monitoring {len(valid_trades)} open trade(s)")
             
-            for trade_record in open_trades:
+            for trade_record in valid_trades:
                 trade = trade_record['fields']
                 record_id = trade_record['id']
                 
