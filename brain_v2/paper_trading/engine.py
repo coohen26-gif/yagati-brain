@@ -11,6 +11,8 @@ from typing import List, Dict, Optional
 from brain_v2.paper_trading.account import PaperAccount
 from brain_v2.paper_trading.position import PositionCalculator
 from brain_v2.paper_trading.recorder import AirtableRecorder
+from brain_v2.ingest.market_data import MarketDataFetcher
+from brain_v2.features.technical import compute_features
 
 
 class PaperTradingEngine:
@@ -27,6 +29,7 @@ class PaperTradingEngine:
         self.account = PaperAccount(self.recorder)
         self.calculator = PositionCalculator(risk_percent=0.01, rr_ratio=2.0)
         self.initial_capital = initial_capital
+        self.fetcher = MarketDataFetcher()
         
         # Initialize account on first run
         self.account.initialize(initial_capital)
@@ -115,6 +118,56 @@ class PaperTradingEngine:
             print(f"⚠️ Paper Trading: Error checking open trades: {e}")
             return False
     
+    def _get_current_price(self, symbol: str) -> Optional[float]:
+        """
+        Get current market price for a symbol.
+        Reuses existing MarketDataFetcher to avoid new API calls.
+        
+        Args:
+            symbol: Trading symbol (e.g., "BTCUSDT")
+            
+        Returns:
+            Current price or None if error
+        """
+        try:
+            # Fetch recent candles (we just need the last close price)
+            # Use 4h timeframe as it's commonly available
+            candles = self.fetcher.fetch_ohlc(symbol, "4h", limit=1)
+            
+            if candles and len(candles) > 0:
+                return float(candles[-1]["close"])
+            
+            return None
+            
+        except Exception as e:
+            print(f"⚠️ Paper Trading: Error fetching price for {symbol}: {e}")
+            return None
+    
+    def _get_market_features(self, symbol: str) -> Optional[Dict]:
+        """
+        Get market features for contextual snapshot.
+        
+        Args:
+            symbol: Trading symbol
+            
+        Returns:
+            Features dictionary or None if error
+        """
+        try:
+            # Fetch candles for feature computation
+            candles = self.fetcher.fetch_ohlc(symbol, "4h", limit=100)
+            
+            if not candles:
+                return None
+            
+            # Compute features
+            features = compute_features(candles)
+            return features
+            
+        except Exception as e:
+            print(f"⚠️ Paper Trading: Error fetching features for {symbol}: {e}")
+            return None
+    
     def _manage_open_trades(self):
         """Check and manage open trades for SL/TP hits"""
         try:
@@ -136,19 +189,53 @@ class PaperTradingEngine:
                 stop_loss = float(trade.get('stop_loss', 0))
                 take_profit = float(trade.get('take_profit', 0))
                 position_size = float(trade.get('position_size', 0))
+                high_water_mark = float(trade.get('high_water_mark_price', entry_price))
+                low_water_mark = float(trade.get('low_water_mark_price', entry_price))
                 
                 print(f"   {symbol} {direction} @ {entry_price:.2f}")
                 print(f"   SL: {stop_loss:.2f} | TP: {take_profit:.2f}")
                 
                 # Get current price
-                # For now, we'll skip actual price checking since we need market data
-                # In a real implementation, we would:
-                # 1. Fetch current price from market data
-                # 2. Check if SL or TP is hit
-                # 3. Close the trade if hit
+                current_price = self._get_current_price(symbol)
                 
-                # TODO: Implement price checking when market data source is available
-                print(f"   ⏳ Monitoring (price checking not yet implemented)")
+                if current_price is None:
+                    print(f"   ⚠️  Could not fetch current price for {symbol}")
+                    continue
+                
+                print(f"   Current: {current_price:.2f}")
+                
+                # Update water marks
+                updated_marks = self.calculator.update_water_marks(
+                    current_price,
+                    high_water_mark,
+                    low_water_mark,
+                    direction
+                )
+                
+                new_high = updated_marks["high_water_mark"]
+                new_low = updated_marks["low_water_mark"]
+                
+                # Persist updated water marks to Airtable
+                if new_high != high_water_mark or new_low != low_water_mark:
+                    self.recorder.update_water_marks(record_id, new_high, new_low)
+                    print(f"   💧 Water marks updated: High={new_high:.2f}, Low={new_low:.2f}")
+                
+                # Check for SL/TP hit
+                hit_result = self.calculator.check_sl_tp_hit(
+                    current_price,
+                    direction,
+                    stop_loss,
+                    take_profit
+                )
+                
+                if hit_result:
+                    exit_price = current_price
+                    exit_reason = hit_result
+                    
+                    # Close the trade
+                    self._close_trade(trade_record, exit_price, exit_reason)
+                else:
+                    print(f"   ✅ Trade still open")
                 
         except Exception as e:
             print(f"⚠️ Paper Trading: Error managing open trades: {e}")
@@ -237,9 +324,25 @@ class PaperTradingEngine:
         try:
             fields = setup.get('fields', {})
             setup_id = setup.get('id', '')
+            symbol = position_params["symbol"]
             
             # Get current equity
             equity = self.account.get_equity()
+            
+            # Get market features for contextual snapshot
+            features = self._get_market_features(symbol)
+            
+            # Extract contextual data (with safe defaults)
+            entry_context_volatility = None
+            entry_context_trend = None
+            entry_context_rsi = None
+            entry_market_regime = None
+            
+            if features:
+                entry_context_volatility = features.get('volatility')
+                entry_context_trend = features.get('trend_strength')
+                entry_context_rsi = features.get('rsi')
+                entry_market_regime = features.get('market_regime')
             
             # Prepare trade data
             trade_data = {
@@ -253,6 +356,15 @@ class PaperTradingEngine:
                 "equity_at_open": equity,
                 "opened_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
                 "setup_id": setup_id,
+                # Initialize water marks at entry price
+                "high_water_mark_price": position_params["entry_price"],
+                "low_water_mark_price": position_params["entry_price"],
+                # Contextual snapshot
+                "entry_context_volatility": entry_context_volatility,
+                "entry_context_trend": entry_context_trend,
+                "entry_context_rsi": entry_context_rsi,
+                "entry_market_regime": entry_market_regime,
+                "entry_snapshot_version": "v1.0",
             }
             
             # Save to Airtable
@@ -265,6 +377,7 @@ class PaperTradingEngine:
                 print(f"   Size: {trade_data['position_size']:.4f}")
                 print(f"   SL: {trade_data['stop_loss']:.2f} | TP: {trade_data['take_profit']:.2f}")
                 print(f"   Risk: {trade_data['risk_amount']:.2f} USDT ({self.calculator.risk_percent * 100}%)")
+                print(f"   Context: Vol={entry_context_volatility:.2f}% | RSI={entry_context_rsi:.1f} | Regime={entry_market_regime}" if features else "   Context: Not available")
             else:
                 print(f"❌ Paper Trading: Failed to save trade")
                 
@@ -290,6 +403,9 @@ class PaperTradingEngine:
             entry_price = float(trade.get('entry_price', 0))
             position_size = float(trade.get('position_size', 0))
             equity_at_open = float(trade.get('equity_at_open', 0))
+            high_water_mark = float(trade.get('high_water_mark_price', entry_price))
+            low_water_mark = float(trade.get('low_water_mark_price', entry_price))
+            opened_at = trade.get('opened_at')
             
             # Calculate P&L
             pnl_data = self.calculator.calculate_pnl(
@@ -302,6 +418,28 @@ class PaperTradingEngine:
             pnl = pnl_data["pnl"]
             pnl_percent = pnl_data["pnl_percent"]
             
+            # Calculate MFE/MAE
+            mfe_mae_data = self.calculator.calculate_mfe_mae(
+                entry_price,
+                high_water_mark,
+                low_water_mark,
+                direction
+            )
+            
+            mfe_percent = mfe_mae_data["mfe_percent"]
+            mae_percent = mfe_mae_data["mae_percent"]
+            
+            # Calculate duration
+            closed_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+            duration_minutes = 0
+            if opened_at:
+                try:
+                    opened_dt = datetime.fromisoformat(opened_at.replace('Z', '+00:00'))
+                    closed_dt = datetime.now(timezone.utc)
+                    duration_minutes = int((closed_dt - opened_dt).total_seconds() / 60)
+                except Exception as e:
+                    print(f"⚠️ Paper Trading: Error calculating duration: {e}")
+            
             # Update equity
             current_equity = self.account.get_equity()
             new_equity = current_equity + pnl
@@ -311,9 +449,13 @@ class PaperTradingEngine:
             closed_trade_data = {
                 **trade,  # Copy all fields from open trade
                 "exit_price": exit_price,
-                "closed_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                "closed_at": closed_at,
+                "duration_minutes": duration_minutes,
                 "pnl": pnl,
                 "pnl_percent": pnl_percent,
+                "pnl_usdt": pnl,
+                "mfe_percent": mfe_percent,
+                "mae_percent": mae_percent,
                 "exit_reason": reason,
             }
             
@@ -334,11 +476,12 @@ class PaperTradingEngine:
             update_result = self.account.update_equity(new_equity, is_win)
             
             if update_result:
-                print(f"✅ Paper Trading: Trade closed")
-                print(f"   {symbol} {direction}")
+                print(f"✅ Trade closed: {symbol} {direction}")
+                print(f"   Reason: {reason}")
                 print(f"   Entry: {entry_price:.2f} | Exit: {exit_price:.2f}")
                 print(f"   P&L: {pnl:+.2f} USDT ({pnl_percent:+.2f}%)")
-                print(f"   Reason: {reason}")
+                print(f"   MFE: {mfe_percent:+.2f}% | MAE: {mae_percent:+.2f}%")
+                print(f"   Duration: {duration_minutes} minutes")
                 print(f"   New Equity: {new_equity:.2f} USDT")
             else:
                 print(f"❌ Paper Trading: Failed to update equity")
