@@ -104,3 +104,10 @@ LOG_ALL_DECISIONS = True
 
 # Explicit error logging
 LOG_ERRORS_EXPLICITLY = True
+
+# ============================================================================
+# Paper Trading Configuration
+# ============================================================================
+
+# Enable/disable paper trading engine (default: disabled for safety)
+PAPER_TRADING_ENABLED = os.getenv("PAPER_TRADING_ENABLED", "false").lower() == "true"

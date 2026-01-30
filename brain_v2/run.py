@@ -22,7 +22,7 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from brain_v2.config.settings import TIMEFRAMES, TABLE_BRAIN_LOGS
+from brain_v2.config.settings import TIMEFRAMES, TABLE_BRAIN_LOGS, PAPER_TRADING_ENABLED
 from brain_v2.config.symbols import SYMBOL_UNIVERSE
 from brain_v2.ingest.market_data import MarketDataFetcher
 from brain_v2.features.technical import compute_features
@@ -166,6 +166,20 @@ def run_analysis_cycle(cycle_num: int = 1):
     print(f"Decisions FORMING: {stats['decisions_forming']}")
     print(f"Decisions REJECTED: {stats['decisions_rejected']}")
     print("="*60 + "\n")
+    
+    # Paper trading (isolated, optional, non-blocking)
+    if PAPER_TRADING_ENABLED:
+        try:
+            from brain_v2.paper_trading.engine import PaperTradingEngine
+            paper_engine = PaperTradingEngine()
+            paper_engine.run_cycle()
+        except Exception as e:
+            # Paper trading errors NEVER block the main flow
+            logger.log_error_explicit(e, "paper_trading")
+            print(f"⚠️ Paper trading error (non-blocking): {e}")
+            # Main flow continues normally
+    else:
+        logger.info("Paper trading disabled (PAPER_TRADING_ENABLED=false)")
 
 
 def main():
