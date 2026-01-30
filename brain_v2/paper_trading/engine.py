@@ -87,7 +87,9 @@ class PaperTradingEngine:
                 return False
             
             return True
-        except Exception:
+        except Exception as e:
+            # Log validation failures due to data issues
+            print(f"⚠️ Paper Trading: Invalid trade data: {e}")
             return False
     
     def _get_valid_open_trades(self) -> List[Dict]:
